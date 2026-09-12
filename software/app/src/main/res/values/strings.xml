@@ -1,0 +1,101 @@
+<resources>
+    <string name="app_name">双目热成像</string>
+    <string name="entry_basic_preview">双目热成像</string>
+    <string name="connect_device">请连接热成像设备</string>
+    <string name="max_temp_format">最高: %.2f ℃</string>
+    <string name="min_temp_format">最低: %.2f ℃</string>
+
+    <string name="entry_custom_preview">自定义预览</string>
+    <string name="entry_multi_preview">多路预览</string>
+    <string name="entry_multi_camera">多摄像头(旧)</string>
+    <string name="entry_multi_camera_new">多摄像头(新)</string>
+    <string name="entry_take_picture">拍照</string>
+    <string name="entry_record_video">录像</string>
+    <string name="entry_set_frame_callback">设置帧回调</string>
+    <string name="btn_open_camera">打开相机</string>
+    <string name="btn_close_camera">关闭相机</string>
+
+    <string name="action_control">参数调节</string>
+    <string name="action_video_format">视频格式</string>
+    <string name="action_rotate_90_CW">顺时针旋转90°</string>
+    <string name="action_rotate_90_CCW">逆时针旋转90°</string>
+    <string name="action_flip_horizontally">水平翻转</string>
+    <string name="action_flip_vertically">垂直翻转</string>
+
+    <string name="device_list_dialog_title">USB设备列表</string>
+    <string name="device_list_empty_tip">请连接USB热成像设备</string>
+    <string name="device_list_cancel_button">取消</string>
+
+    <string name="video_format_title">视频格式</string>
+    <string name="video_format_format">格式</string>
+    <string name="video_format_resolution">分辨率</string>
+    <string name="video_format_frame_rate">帧率</string>
+    <string name="video_format_ok_button">确定</string>
+    <string name="video_format_cancel_button">取消</string>
+    <string name="video_format_format_yuv">YUV</string>
+    <string name="video_format_format_mjped">MJPEG</string>
+
+    <string name="param_high_freq">高频细节</string>
+    <string name="param_parallax_offset">视差校准</string>
+    <string name="param_offset_x">水平位移 (X)</string>
+    <string name="param_offset_y">垂直位移 (Y)</string>
+    <string name="param_scale">视场缩放 (Scale)</string>
+    <string name="param_rotation">角度微调 (Rotate)</string>
+    <string name="camera_controls_button_save">保存校准</string>
+    <string name="btn_auto_calibrate">光轴智能对齐 (Auto Align)</string>
+    <string name="auto_calib_tip">置手掌或温差物体于镜头前 0.5~1 米处自动对齐</string>
+    <string name="auto_calib_running">正在计算最优光轴对齐参数...</string>
+    <string name="auto_calib_success_format">光轴对齐完成: X=%1$d, Y=%2$d, Scale=%3$d%%</string>
+    <string name="auto_calib_failed_hint">未检测到清晰目标，请调整距离后重试</string>
+    <string name="calib_saved_tip">校准参数已永久保存</string>
+    <string name="calib_reset_tip">已恢复出厂默认参数</string>
+    <string name="hud_max_label">HOT</string>
+    <string name="hud_center_label">CENTER</string>
+    <string name="hud_min_label">COLD</string>
+    <string name="hud_diff_label">ΔT</string>
+    <string name="hud_device_offline">双目光学传感器就绪 • 等待设备接入</string>
+    <string name="stat_status_title">目标状态</string>
+    <string name="stat_status_normal">温差正常</string>
+    <string name="stat_emissivity_title">发射率 ε</string>
+    <string name="stat_emissivity_val">0.95 哑光</string>
+    <string name="stat_palette_title">色谱系</string>
+    <string name="mode_fusion">双光融合</string>
+    <string name="mode_thermal">纯热像</string>
+    <string name="mode_visible">可见光</string>
+    <string name="mode_palette">切换色谱</string>
+    <string name="toast_photo_saved">热像照片已保存至相册</string>
+    <string name="toast_photo_failed">保存照片失败</string>
+    <string name="action_align">智能对齐</string>
+    <string name="action_settings">参数设置</string>
+    <string name="param_color_map">双目融合</string>
+    <string name="param_pseudo_color">轮廓融合</string>
+    <string name="param_plasma">等离子</string>
+    <string name="param_jet">彩虹色</string>
+    <string name="param_fps_4">4 Hz</string>
+    <string name="param_fps_8">8 Hz</string>
+
+    <string name="camera_controls_text_brightness">亮度</string>
+    <string name="camera_controls_text_contrast">对比度</string>
+    <string name="camera_controls_text_hue">色调</string>
+    <string name="camera_controls_text_auto">自动</string>
+    <string name="camera_controls_text_saturation">饱和度</string>
+    <string name="camera_controls_text_sharpness">锐度</string>
+    <string name="camera_controls_text_gamma">伽玛</string>
+    <string name="camera_controls_text_white_balance">白平衡</string>
+    <string name="camera_controls_text_backlight_comp">背光补偿</string>
+    <string name="camera_controls_text_gain">增益</string>
+    <string name="camera_controls_text_exposure_time">曝光时间</string>
+    <string name="camera_controls_text_iris">光圈</string>
+    <string name="camera_controls_text_focus">聚焦</string>
+    <string name="camera_controls_text_zoom">缩放</string>
+    <string name="camera_controls_text_pan">水平旋转</string>
+    <string name="camera_controls_text_tilt">垂直俯仰</string>
+    <string name="camera_controls_text_roll">滚动</string>
+    <string name="camera_controls_text_disable">禁用</string>
+    <string name="camera_controls_text_50hz">50Hz</string>
+    <string name="camera_controls_text_60hz">60Hz</string>
+    <string name="camera_controls_button_close">关闭</string>
+    <string name="camera_controls_button_reset">重置</string>
+    <string name="btn_open">打开</string>
+    <string name="btn_close">关闭</string>
+</resources>

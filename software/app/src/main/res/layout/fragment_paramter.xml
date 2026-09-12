@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="16dp"
+    android:layout_marginEnd="16dp"
+    android:layout_marginTop="30dp"
+    android:layout_marginBottom="30dp"
+    android:background="@drawable/bg_dialog_card"
+    android:padding="16dp">
+
+    <!-- Header Title -->
+    <LinearLayout
+        android:id="@+id/llHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingBottom="12dp">
+
+        <View
+            android:layout_width="3dp"
+            android:layout_height="14dp"
+            android:background="@color/theme_accent_teal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.04"
+            android:text="参数调节与视觉校准"
+            android:textColor="@color/theme_text_primary"
+            android:textSize="14sp" />
+    </LinearLayout>
+
+    <View
+        android:id="@+id/vHeaderDivider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_below="@id/llHeader"
+        android:layout_marginBottom="10dp"
+        android:background="@color/theme_border_subtle" />
+
+    <ScrollView
+        android:id="@+id/svCameraControlsContent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/vHeaderDivider"
+        android:layout_above="@id/llBottomButtons"
+        android:fadeScrollbars="true"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Sliders for Optical Alignment -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="42dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    style="@style/FragmentCameraControlsTextLeft"
+                    android:text="@string/param_offset_x" />
+
+                <com.warkiz.widget.IndicatorSeekBar
+                    android:id="@+id/isbOffsetX"
+                    style="@style/FragmentCameraControlsSeekBar" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="42dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    style="@style/FragmentCameraControlsTextLeft"
+                    android:text="@string/param_offset_y" />
+
+                <com.warkiz.widget.IndicatorSeekBar
+                    android:id="@+id/isbOffsetY"
+                    style="@style/FragmentCameraControlsSeekBar" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="42dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    style="@style/FragmentCameraControlsTextLeft"
+                    android:text="@string/param_scale" />
+
+                <com.warkiz.widget.IndicatorSeekBar
+                    android:id="@+id/isbScale"
+                    style="@style/FragmentCameraControlsSeekBar" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="42dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    style="@style/FragmentCameraControlsTextLeft"
+                    android:text="@string/param_rotation" />
+
+                <com.warkiz.widget.IndicatorSeekBar
+                    android:id="@+id/isbRotation"
+                    style="@style/FragmentCameraControlsSeekBar" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="10dp"
+                android:background="@color/theme_border_subtle" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingTop="2dp"
+                android:paddingBottom="4dp">
+
+                <TextView
+                    style="@style/FragmentCameraControlsTextLeft"
+                    android:text="热像帧率" />
+
+                <RadioGroup
+                    android:id="@+id/rgThermalFPS"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/rb8Hz"
+                        style="@style/FragmentCameraControlsRadioButton"
+                        android:layout_marginEnd="16dp"
+                        android:text="@string/param_fps_4" />
+
+                    <RadioButton
+                        android:id="@+id/rb16Hz"
+                        style="@style/FragmentCameraControlsRadioButton"
+                        android:text="@string/param_fps_8" />
+                </RadioGroup>
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="10dp"
+                android:background="@color/theme_border_subtle" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    style="@style/FragmentCameraControlsTextLeft"
+                    android:text="画面镜像" />
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switchMirrorX"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="水平镜像 (翻转对齐)"
+                    android:textColor="@color/theme_text_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Bottom Action Bar -->
+    <LinearLayout
+        android:id="@+id/llBottomButtons"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginTop="12dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btnCameraControlsReset"
+            style="@style/FragmentCameraControlsBottomButton"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/bg_btn_secondary"
+            app:backgroundTint="@null"
+            android:text="@string/camera_controls_button_reset" />
+
+        <Button
+            android:id="@+id/btnCameraControlsCancel"
+            style="@style/FragmentCameraControlsBottomButton"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/bg_btn_secondary"
+            app:backgroundTint="@null"
+            android:text="@string/camera_controls_button_close" />
+
+        <Button
+            android:id="@+id/btnCameraControlsSave"
+            style="@style/FragmentCameraControlsBottomButton"
+            android:layout_weight="1.2"
+            android:background="@drawable/bg_btn_primary"
+            app:backgroundTint="@null"
+            android:fontFamily="sans-serif-medium"
+            android:text="@string/camera_controls_button_save"
+            android:textColor="@color/theme_bg_dark" />
+    </LinearLayout>
+</RelativeLayout>

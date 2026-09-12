@@ -1,0 +1,656 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/theme_bg_dark">
+
+    <!-- Top Instrument Header (replaces standard ActionBar, zero duplicates) -->
+    <LinearLayout
+        android:id="@+id/llTopInstrumentHeader"
+        android:layout_width="match_parent"
+        android:layout_height="38dp"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <View
+            android:layout_width="7dp"
+            android:layout_height="7dp"
+            android:background="@drawable/bg_btn_primary"
+            android:backgroundTint="@color/theme_cold_cyan" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="0.06"
+            android:text="@string/app_name"
+            android:textColor="@color/theme_text_primary"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:letterSpacing="0.04"
+            android:text="• MLX90640 双光谱"
+            android:textColor="@color/theme_text_tertiary"
+            android:textSize="10sp" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <View
+                android:layout_width="6dp"
+                android:layout_height="6dp"
+                android:background="@drawable/bg_btn_primary"
+                android:backgroundTint="@color/theme_accent_teal" />
+
+            <TextView
+                android:id="@+id/tvHeaderFpsStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="5dp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.04"
+                android:text="16 FPS • 运行正常"
+                android:textColor="@color/theme_accent_teal"
+                android:textSize="10sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Center Viewport Frame (Cinema 4:3) -->
+    <FrameLayout
+        android:id="@+id/flFusionImageView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginTop="6dp"
+        app:layout_constraintDimensionRatio="4:3"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/llTopInstrumentHeader">
+
+        <!-- Camera live view -->
+        <ImageView
+            android:id="@+id/ivFusionImagePreview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitCenter" />
+
+        <!-- Quick Mirror Action Button -->
+        <TextView
+            android:id="@+id/btnQuickMirror"
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:layout_gravity="top|start"
+            android:layout_marginStart="10dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_quick_pill"
+            android:gravity="center"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:text="⇄ 镜像: 关"
+            android:textColor="@color/theme_text_secondary"
+            android:textSize="11sp" />
+
+        <!-- Offline / Ready status indicator -->
+        <LinearLayout
+            android:id="@+id/llDeviceOffline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <ImageView
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_thermal_sensor" />
+
+            <TextView
+                android:id="@+id/tvConnectHip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/hud_device_offline"
+                android:textColor="@color/theme_text_secondary"
+                android:textSize="13sp" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- Section 1: Three Substantial Metrology Dashboard Cards -->
+    <LinearLayout
+        android:id="@+id/llMetrologyCards"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toBottomOf="@id/flFusionImageView">
+
+        <!-- Card 1: Peak (MAX) -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="5dp"
+            android:background="@drawable/bg_stat_chip"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="6dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                <View
+                    android:layout_width="5dp"
+                    android:layout_height="5dp"
+                    android:background="@drawable/bg_btn_primary"
+                    android:backgroundTint="@color/theme_hot_amber" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="峰值 MAX"
+                    android:textColor="@color/theme_text_tertiary"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvMaxTemperature"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:text="--.- ℃"
+                android:textColor="@color/theme_hot_amber"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvTargetStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/stat_status_normal"
+                android:textColor="@color/theme_accent_teal"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <!-- Card 2: Center (CTR) & Emissivity -->
+        <LinearLayout
+            android:id="@+id/llChipEmissivity"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="5dp"
+            android:background="@drawable/bg_stat_chip"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="6dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="+"
+                    android:textColor="@color/theme_accent_teal"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="3dp"
+                    android:text="中心 CTR"
+                    android:textColor="@color/theme_text_tertiary"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvCenterTemperature"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:text="--.- ℃"
+                android:textColor="@color/theme_accent_teal"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvEmissivity"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/stat_emissivity_val"
+                android:textColor="@color/theme_text_secondary"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <!-- Card 3: Valley (MIN) & ΔT -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/bg_stat_chip"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="6dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                <View
+                    android:layout_width="5dp"
+                    android:layout_height="5dp"
+                    android:background="@drawable/bg_btn_primary"
+                    android:backgroundTint="@color/theme_cold_cyan" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="谷值 MIN"
+                    android:textColor="@color/theme_text_tertiary"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvMinTemperature"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:text="--.- ℃"
+                android:textColor="@color/theme_cold_cyan"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvDiffTemperature"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ΔT: --.- ℃"
+                android:textColor="@color/theme_text_secondary"
+                android:textSize="10sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Section 2: Real-Time Temperature Trend Graph (Expanded height for crisp curves & scale) -->
+    <com.example.thermaleyes.ThermalTrendView
+        android:id="@+id/thermalTrendView"
+        android:layout_width="match_parent"
+        android:layout_height="130dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/llMetrologyCards" />
+
+    <!-- Section 3: Dual-Spectrum Fusion Blend Slider (Instant WYSIWYG Edge/Thermal Tuning) -->
+    <LinearLayout
+        android:id="@+id/llFusionBlendBar"
+        android:layout_width="match_parent"
+        android:layout_height="42dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/bg_slider_container"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        app:layout_constraintTop_toBottomOf="@id/thermalTrendView">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-medium"
+            android:text="融合度"
+            android:textColor="@color/theme_text_secondary"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:text="热像"
+            android:textColor="@color/theme_hot_amber"
+            android:textSize="10sp" />
+
+        <SeekBar
+            android:id="@+id/sbQuickFusionBlend"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:max="100"
+            android:progress="50"
+            android:progressBackgroundTint="@color/theme_border_subtle"
+            android:progressTint="@color/theme_accent_teal"
+            android:thumbTint="@color/theme_accent_teal" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="轮廓"
+            android:textColor="@color/theme_cold_cyan"
+            android:textSize="10sp" />
+
+        <TextView
+            android:id="@+id/tvQuickBlendRatio"
+            android:layout_width="44dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="end"
+            android:text="50%"
+            android:textColor="@color/theme_accent_teal"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Section 4: Industry Scenario Presets (Horizontal Scrollable) -->
+    <HorizontalScrollView
+        android:id="@+id/hsvIndustryModes"
+        android:layout_width="match_parent"
+        android:layout_height="34dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"
+        android:layout_marginTop="8dp"
+        android:overScrollMode="never"
+        android:scrollbars="none"
+        app:layout_constraintTop_toBottomOf="@id/llFusionBlendBar">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/btnIndStandard"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_quick_pill"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="⚙️ 通用工业"
+                android:textColor="@color/theme_accent_teal"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/btnIndElectrical"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_quick_pill"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="⚡ 电力等温"
+                android:textColor="@color/theme_text_secondary"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/btnIndBuilding"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_quick_pill"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="🏢 建筑暖通"
+                android:textColor="@color/theme_text_secondary"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/btnIndPcb"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_quick_pill"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="💻 电子排障"
+                android:textColor="@color/theme_text_secondary"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/btnIndMedical"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_quick_pill"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="🩺 医疗体温"
+                android:textColor="@color/theme_text_secondary"
+                android:textSize="11sp" />
+
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- Contextual Action Bar for PCB Differential Diagnosis -->
+    <LinearLayout
+        android:id="@+id/llPcbActionStrip"
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/bg_slider_container"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/hsvIndustryModes">
+
+        <TextView
+            android:id="@+id/btnPcbCapture"
+            android:layout_width="wrap_content"
+            android:layout_height="26dp"
+            android:background="@drawable/bg_btn_primary"
+            android:backgroundTint="@color/theme_cold_cyan"
+            android:gravity="center"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:text="📸 采样冷态基准"
+            android:textColor="@color/theme_bg_dark"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvPcbStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="冷态未采样 (通电前先点击采样)"
+            android:textColor="@color/theme_text_secondary"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/btnPcbClear"
+            android:layout_width="wrap_content"
+            android:layout_height="26dp"
+            android:background="@drawable/bg_quick_pill"
+            android:gravity="center"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:text="✕ 重置"
+            android:textColor="@color/theme_text_secondary"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!-- Section 5: Quick Mode Switcher Dock -->
+    <LinearLayout
+        android:id="@+id/llQuickDock"
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toBottomOf="@id/llPcbActionStrip">
+
+        <TextView
+            android:id="@+id/btnModeFusion"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/bg_quick_pill"
+            android:gravity="center"
+            android:text="@string/mode_fusion"
+            android:textColor="@color/theme_accent_teal"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/btnModeThermal"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/bg_quick_pill"
+            android:gravity="center"
+            android:text="@string/mode_thermal"
+            android:textColor="@color/theme_text_secondary"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/btnModeVisible"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/bg_quick_pill"
+            android:gravity="center"
+            android:text="@string/mode_visible"
+            android:textColor="@color/theme_text_secondary"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/btnQuickPalette"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/bg_quick_pill"
+            android:gravity="center"
+            android:text="@string/mode_palette"
+            android:textColor="@color/theme_text_secondary"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <!-- Section 5: Bottom Action Bar (Align - Shutter - Settings) -->
+    <LinearLayout
+        android:id="@+id/llBottomActionBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="20dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <!-- Left: Quick Align Action -->
+        <LinearLayout
+            android:id="@+id/llQuickAlign"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="6dp">
+
+            <ImageView
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_btn_circle"
+                android:scaleType="center"
+                android:src="@drawable/ic_target_align" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="@string/action_align"
+                android:textColor="@color/theme_text_secondary"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- Center: Shutter Button -->
+        <FrameLayout
+            android:id="@+id/flShutterButton"
+            android:layout_width="68dp"
+            android:layout_height="68dp"
+            android:layout_marginStart="36dp"
+            android:layout_marginEnd="36dp"
+            android:background="@drawable/bg_shutter_outer">
+
+            <ImageView
+                android:layout_width="54dp"
+                android:layout_height="54dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_shutter_inner"
+                android:scaleType="center"
+                android:src="@drawable/ic_shutter_camera" />
+        </FrameLayout>
+
+        <!-- Right: Settings Action -->
+        <LinearLayout
+            android:id="@+id/llQuickSettings"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="6dp">
+
+            <ImageView
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_btn_circle"
+                android:scaleType="center"
+                android:src="@drawable/ic_settings_tune" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="@string/action_settings"
+                android:textColor="@color/theme_text_secondary"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

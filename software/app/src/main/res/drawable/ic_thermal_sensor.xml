@@ -1,0 +1,23 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Left lens ring -->
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="1.8"
+        android:fillColor="#00000000"
+        android:pathData="M 19,24 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0" />
+    <!-- Right lens ring -->
+    <path
+        android:strokeColor="#FF6B4A"
+        android:strokeWidth="1.8"
+        android:fillColor="#00000000"
+        android:pathData="M 29,24 m -11,0 a 11,11 0 1,0 22,0 a 11,11 0 1,0 -22,0" />
+    <!-- Center reticle -->
+    <path
+        android:strokeColor="#F0F6FC"
+        android:strokeWidth="1.5"
+        android:pathData="M 24,19 L 24,29 M 19,24 L 29,24" />
+</vector>

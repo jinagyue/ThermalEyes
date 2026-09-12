@@ -1,0 +1,92 @@
+# =========================================================================
+# Local Backups & Archive Files (Not for Git tracking)
+# =========================================================================
+双目手机红外热成像/
+*.7z
+*.zip
+*.rar
+*.bin
+emulator_*.png
+
+# =========================================================================
+# Android & Gradle Build Artifacts (software/)
+# =========================================================================
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+bin/
+gen/
+out/
+.gradle/
+build/
+*/build/
+**/build/
+local.properties
+*/local.properties
+**/local.properties
+
+# =========================================================================
+# Android Studio & JetBrains IDE Files
+# =========================================================================
+*.iml
+*.ipr
+*.iws
+.idea/
+**/.idea/
+.navigation/
+captures/
+
+# =========================================================================
+# NDK / CMake / Native C++ Build Artifacts
+# =========================================================================
+.cxx/
+*/.cxx/
+**/.cxx/
+.externalNativeBuild/
+*/.externalNativeBuild/
+**/.externalNativeBuild/
+
+# =========================================================================
+# Embedded Firmware & STM32CubeIDE Build Output (firmware/)
+# =========================================================================
+Debug/
+**/Debug/
+Release/
+**/Release/
+*.o
+*.obj
+*.elf
+*.map
+*.d
+*.su
+*.idb
+*.pdb
+*.ilk
+*.exp
+*.gch
+*.pch
+.settings/
+**/.settings/
+
+# =========================================================================
+# OS Generated Files
+# =========================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+[Tt]humbs.db
+
+# =========================================================================
+# Temporary & Backup Files
+# =========================================================================
+*.bak
+*.tmp
+*~
+*.swp
+/software/com/
