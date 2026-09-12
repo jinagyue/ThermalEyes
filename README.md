@@ -52,13 +52,13 @@ ThermalEyes/
 
 ```mermaid
 graph LR
-    subgraph 硬件端 (Hardware)
+    subgraph HW["硬件端 (Hardware)"]
         MLX["MLX90640 红外传感器<br/>(32x24 热阵列)"] -->|I2C 400kHz| MCU["STM32F411CEU6<br/>(固件: firmware)"]
         MCU -->|USB CDC 数据流| HUB["Type-C OTG 接口"]
         CAM["可见光 UVC 摄像头模组"] -->|USB Video| HUB
     end
 
-    subgraph 手机端 (Android / software)
+    subgraph APP["手机端 (Android / software)"]
         HUB --> USB_MGR["Android USB Host"]
         USB_MGR -->|UVCAndroid 协议| FRAME_CAM["可见光视频帧"]
         USB_MGR -->|UsbSerial 串口驱动| FRAME_IR["红外原始温度帧"]
