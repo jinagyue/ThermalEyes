@@ -34,7 +34,7 @@ namespace CalibrationModel {
     // Initial empirical parameters (Subject to multi-distance calibration experiment re-fitting)
     constexpr float DEFAULT_AX = 22.1f;     // px * m (evaluated at 640x480)
     constexpr float DEFAULT_BX = 1.5f;      // px (evaluated at 640x480)
-    constexpr float DEFAULT_BASE_Y = -5.0f; // px (evaluated at 640x480)
+    constexpr float DEFAULT_BASE_Y = -10.0f; // px (evaluated at 640x480)
     constexpr float MIN_Z = 0.18f;          // meters
     constexpr float MAX_Z = 2.50f;          // meters
 

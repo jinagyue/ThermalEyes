@@ -24,11 +24,13 @@ public class CalibrationManager {
     public static final String KEY_PARALLAX_BX = "calib_parallax_bx";
     public static final String KEY_BASE_OFFSET_Y = "calib_base_offset_y";
     public static final String KEY_ALIGN_MODE = "calib_align_mode";
+    public static final String KEY_CALIBRATION_VERSION = "calib_version";
+    public static final int CURRENT_CALIBRATION_VERSION = 2; // v2: TCCA verified defaults (-23, -10, 1.12f)
 
-    // Defaults
-    public static final int DEFAULT_OFFSET_X = 25;
-    public static final int DEFAULT_OFFSET_Y = -5;
-    public static final float DEFAULT_SCALE = 1.0f;
+    // Defaults (TCCA Verified Base: scale=1.12f, offsetX=-23, offsetY=-10, rotation=0.0f)
+    public static final int DEFAULT_OFFSET_X = -23;
+    public static final int DEFAULT_OFFSET_Y = -10;
+    public static final float DEFAULT_SCALE = 1.12f;
     public static final float DEFAULT_ROTATION = 0.0f;
     public static final int DEFAULT_HIGH_FREQ = ImageFusion.HIGH_FREQ_RATIO_MEDIUM;
     public static final int DEFAULT_COLOR_TAB = ImageFusion.PSEUDO_COLOR_TAB_PLASMA;
@@ -40,11 +42,10 @@ public class CalibrationManager {
     public static final boolean DEFAULT_MIRROR_Y = false;
     public static final int DEFAULT_ALIGN_MODE = ImageFusion.ALIGN_MODE_TGA;
 
-    // Initial empirical values.
-    // Must be re-fitted using actual multi-distance calibration measurements.
+    // Initial empirical values (Physical Parallax: dx(Z) = ax / Z + bx, dy = base_y)
     public static final float DEFAULT_PARALLAX_AX = 22.1f;
     public static final float DEFAULT_PARALLAX_BX = 1.5f;
-    public static final int DEFAULT_BASE_OFFSET_Y = -5;
+    public static final int DEFAULT_BASE_OFFSET_Y = -10;
 
     public static class CalibrationData {
         public int offsetX = DEFAULT_OFFSET_X;
@@ -70,10 +71,31 @@ public class CalibrationManager {
     public static CalibrationData load(Context context) {
         CalibrationData data = new CalibrationData();
         SharedPreferences sp = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        data.offsetX = sp.getInt(KEY_OFFSET_X, DEFAULT_OFFSET_X);
-        data.offsetY = sp.getInt(KEY_OFFSET_Y, DEFAULT_OFFSET_Y);
-        data.scale = sp.getFloat(KEY_SCALE, DEFAULT_SCALE);
-        data.rotation = sp.getFloat(KEY_ROTATION, DEFAULT_ROTATION);
+
+        int savedVersion = sp.getInt(KEY_CALIBRATION_VERSION, 0);
+        if (savedVersion < CURRENT_CALIBRATION_VERSION) {
+            // Migrate legacy calibration values (+25, -5, 1.0f) to TCCA verified defaults (-23, -10, 1.12f)
+            data.offsetX = DEFAULT_OFFSET_X;
+            data.offsetY = DEFAULT_OFFSET_Y;
+            data.scale = DEFAULT_SCALE;
+            data.rotation = DEFAULT_ROTATION;
+            data.baseOffsetY = DEFAULT_BASE_OFFSET_Y;
+            sp.edit()
+                    .putInt(KEY_CALIBRATION_VERSION, CURRENT_CALIBRATION_VERSION)
+                    .putInt(KEY_OFFSET_X, data.offsetX)
+                    .putInt(KEY_OFFSET_Y, data.offsetY)
+                    .putFloat(KEY_SCALE, data.scale)
+                    .putFloat(KEY_ROTATION, data.rotation)
+                    .putInt(KEY_BASE_OFFSET_Y, data.baseOffsetY)
+                    .apply();
+        } else {
+            data.offsetX = sp.getInt(KEY_OFFSET_X, DEFAULT_OFFSET_X);
+            data.offsetY = sp.getInt(KEY_OFFSET_Y, DEFAULT_OFFSET_Y);
+            data.scale = sp.getFloat(KEY_SCALE, DEFAULT_SCALE);
+            data.rotation = sp.getFloat(KEY_ROTATION, DEFAULT_ROTATION);
+            data.baseOffsetY = sp.getInt(KEY_BASE_OFFSET_Y, DEFAULT_BASE_OFFSET_Y);
+        }
+
         data.highFreq = sp.getInt(KEY_HIGH_FREQ, DEFAULT_HIGH_FREQ);
         data.colorTab = sp.getInt(KEY_COLOR_TAB, DEFAULT_COLOR_TAB);
         data.fusionMode = sp.getInt(KEY_FUSION_MODE, DEFAULT_FUSION_MODE);
@@ -83,12 +105,17 @@ public class CalibrationManager {
         data.mirrorX = sp.getBoolean(KEY_MIRROR_X, DEFAULT_MIRROR_X);
         data.mirrorY = sp.getBoolean(KEY_MIRROR_Y, DEFAULT_MIRROR_Y);
 
-        // Inverse-depth parallax model parameters (backwards compatible with KEY_OFFSET_Y)
         data.parallaxAx = sp.getFloat(KEY_PARALLAX_AX, DEFAULT_PARALLAX_AX);
         data.parallaxBx = sp.getFloat(KEY_PARALLAX_BX, DEFAULT_PARALLAX_BX);
-        data.baseOffsetY = sp.getInt(KEY_BASE_OFFSET_Y, sp.getInt(KEY_OFFSET_Y, DEFAULT_BASE_OFFSET_Y));
         data.alignMode = sp.getInt(KEY_ALIGN_MODE, DEFAULT_ALIGN_MODE);
         return data;
+    }
+
+    public static void resetToTccaDefaults(Context context) {
+        CalibrationData data = new CalibrationData();
+        save(context, data);
+        SharedPreferences sp = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        sp.edit().putInt(KEY_CALIBRATION_VERSION, CURRENT_CALIBRATION_VERSION).apply();
     }
 
     public static void save(Context context, CalibrationData data) {
