@@ -169,7 +169,7 @@ public class ParameterDialogFragment extends DialogFragment {
                 new int[]{ ThermalDevice.FPS_4, ThermalDevice.FPS_8},
                 param.fps);
 
-        if (param.alignMode == ImageFusion.ALIGN_MODE_PCTVA) {
+        if (param.alignMode == ImageFusion.ALIGN_MODE_TCCA_PHYS) {
             mBinding.rbAlignPctva.setChecked(true);
         } else {
             mBinding.rbAlignTga.setChecked(true);
@@ -220,7 +220,7 @@ public class ParameterDialogFragment extends DialogFragment {
         });
 
         mBinding.rgAlignMode.setOnCheckedChangeListener((group, checkedId) -> {
-            int mode = (checkedId == R.id.rbAlignPctva) ? ImageFusion.ALIGN_MODE_PCTVA : ImageFusion.ALIGN_MODE_TGA;
+            int mode = (checkedId == R.id.rbAlignPctva) ? ImageFusion.ALIGN_MODE_TCCA_PHYS : ImageFusion.ALIGN_MODE_TCCA_FAST;
             if (mImageFusion != null) {
                 mImageFusion.setAlignMode(mode);
             }

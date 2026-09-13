@@ -533,13 +533,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     return;
                 }
                 int mode = mImageFusion.getAlignMode();
-                String modeName = (mode == ImageFusion.ALIGN_MODE_TGA) ? "TGA工程模式" : "PCTVA论文模式";
-                Toast.makeText(this, "[" + modeName + "] 正在智能对齐，请保持目标完整稳定...", Toast.LENGTH_SHORT).show();
+                String modeName = (mode == ImageFusion.ALIGN_MODE_TCCA_PHYS) ? "TCCA论文模式 (TCCA-Phys)" : "TCCA工程模式 (TCCA-Fast)";
+                Toast.makeText(this, "正在智能对齐，请保持目标稳定...", Toast.LENGTH_SHORT).show();
                 mImageFusion.autoCalibrate(new ImageFusion.OnAutoCalibrateCallback() {
                     @Override
                     public void onSuccess(int offsetX, int offsetY, float scale, float distance, float score) {
                         runOnUiThread(() -> {
-                            String modeTag = (mode == ImageFusion.ALIGN_MODE_TGA) ? "TGA工程" : "PCTVA论文";
+                            String modeTag = (mode == ImageFusion.ALIGN_MODE_TCCA_PHYS) ? "TCCA论文" : "TCCA工程";
                             String msg = String.format(Locale.getDefault(),
                                     "[%s] 对齐成功\n物距: %.2f m | 视差: X=%d px, Y=%d px\n置信度: %.2f",
                                     modeTag, distance, offsetX, offsetY, score);
@@ -735,26 +735,26 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     public void updateAlignButtonDisplay() {
         if (mTvQuickAlignLabel == null) return;
-        int mode = (mImageFusion != null) ? mImageFusion.getAlignMode() : ImageFusion.ALIGN_MODE_TGA;
-        if (mode == ImageFusion.ALIGN_MODE_PCTVA) {
+        int mode = (mImageFusion != null) ? mImageFusion.getAlignMode() : ImageFusion.ALIGN_MODE_TCCA_FAST;
+        if (mode == ImageFusion.ALIGN_MODE_TCCA_PHYS) {
             mTvQuickAlignLabel.setText("对齐 (论文)");
             mTvQuickAlignLabel.setTextColor(Color.parseColor("#4DA3FF"));
         } else {
-            mTvQuickAlignLabel.setText("对齐 (TGA)");
+            mTvQuickAlignLabel.setText("智能对齐");
             mTvQuickAlignLabel.setTextColor(getResources().getColor(R.color.theme_text_secondary, getTheme()));
         }
     }
 
     private void showAlignModeSelectDialog() {
         final String[] items = {
-                "🚀 工程模式 (TGA - 快速稳定, 推荐移动端实时使用)",
-                "🧪 论文模式 (PCTVA - 物理逆深度优化, 科研实验与真值评测)"
+                "🚀 TCCA工程模式 (TCCA-Fast - 快速稳定, 推荐移动端实时使用)",
+                "🧪 TCCA论文模式 (TCCA-Phys - 物理先验约束, 科研实验与真值评测)"
         };
-        int currentMode = (mImageFusion != null) ? mImageFusion.getAlignMode() : ImageFusion.ALIGN_MODE_TGA;
+        int currentMode = (mImageFusion != null) ? mImageFusion.getAlignMode() : ImageFusion.ALIGN_MODE_TCCA_FAST;
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("选择自动对齐模式 (长按快捷切换)")
                 .setSingleChoiceItems(items, currentMode, (dialog, which) -> {
-                    int newMode = (which == 1) ? ImageFusion.ALIGN_MODE_PCTVA : ImageFusion.ALIGN_MODE_TGA;
+                    int newMode = (which == 1) ? ImageFusion.ALIGN_MODE_TCCA_PHYS : ImageFusion.ALIGN_MODE_TCCA_FAST;
                     if (mImageFusion != null) {
                         mImageFusion.setAlignMode(newMode);
                     }
@@ -762,7 +762,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     data.alignMode = newMode;
                     CalibrationManager.save(this, data);
                     updateAlignButtonDisplay();
-                    String selectedName = (newMode == ImageFusion.ALIGN_MODE_TGA) ? "工程模式 (TGA)" : "论文模式 (PCTVA)";
+                    String selectedName = (newMode == ImageFusion.ALIGN_MODE_TCCA_PHYS) ? "TCCA论文模式 (TCCA-Phys)" : "TCCA工程模式 (TCCA-Fast)";
                     Toast.makeText(this, "已切换为: " + selectedName, Toast.LENGTH_SHORT).show();
                     dialog.dismiss();
                 })

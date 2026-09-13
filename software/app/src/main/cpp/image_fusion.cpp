@@ -460,21 +460,22 @@ Java_com_example_thermaleyes_ImageFusion_nativeGetMirrorY(JNIEnv *env, jobject t
     return g_image.mirror_y ? JNI_TRUE : JNI_FALSE;
 }
 
-#include "alignment/CalibrationModel.h"
-#include "alignment/ThermalGuidedAligner.h"
-#include "alignment/PhysicsAlignment.h"
+#include "alignment/AlignmentTypes.h"
+#include "alignment/ThermalContourExtractor.h"
+#include "alignment/RgbDistanceField.h"
+#include "alignment/ChamferAligner.h"
 
-static int g_align_mode = ALIGN_MODE_TGA; // Default: 0 = TGA (Engineering Mode)
+static int g_align_mode = TCCA_FAST; // Default: 0 = TCCA_FAST (Engineering Mode)
 
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_thermaleyes_ImageFusion_nativeSetAlignMode(JNIEnv *env, jobject thiz, jint mode) {
-    if (mode == ALIGN_MODE_PCTVA) {
-        g_align_mode = ALIGN_MODE_PCTVA;
-        LOGI("nativeSetAlignMode: Set to RESEARCH (PCTVA)");
+    if (mode == TCCA_PHYS) {
+        g_align_mode = TCCA_PHYS;
+        LOGI("nativeSetAlignMode: Set to RESEARCH (TCCA-Phys)");
     } else {
-        g_align_mode = ALIGN_MODE_TGA;
-        LOGI("nativeSetAlignMode: Set to APP (TGA)");
+        g_align_mode = TCCA_FAST;
+        LOGI("nativeSetAlignMode: Set to APP (TCCA-Fast)");
     }
 }
 
@@ -496,37 +497,79 @@ Java_com_example_thermaleyes_ImageFusion_nativeAutoCalibrate(JNIEnv *env, jobjec
     jbyte *therm_data = env->GetByteArrayElements(thermData, 0);
 
     AlignmentResult res;
-    if (g_align_mode == ALIGN_MODE_PCTVA) {
-        LOGI("nativeAutoCalibrate: Running PCTVA (Research Mode)...");
-        res = PhysicsAlignment::align((const uint8_t *)cam_data, (const uint8_t *)therm_data,
-                                      cam_width, cam_height, therm_width, therm_height);
+    res.success = false;
+    res.status = INTERNAL_ERROR;
+    res.dx = -23.0f;
+    res.dy = -10.0f;
+    res.scale = 1.12f;
+    res.score = 999.0f;
+    res.confidence = 0.0f;
+    res.runtimeMs = 0.0f;
+
+    // 1. Thermal Contour Extraction with MLX90640 Hardware Mirror Normalization
+    ThermalContourExtractor extractor(45);
+    ThermalContour tc = extractor.extractFromRaw((const uint8_t *)therm_data,
+                                                 therm_width, therm_height,
+                                                 cam_width, cam_height,
+                                                 true);
+
+    if (!tc.valid) {
+        LOGW("nativeAutoCalibrate: Thermal contour extraction failed with status %d", tc.status);
+        res.status = tc.status;
     } else {
-        LOGI("nativeAutoCalibrate: Running TGA (Engineering Mode)...");
-        res = ThermalGuidedAligner::align((const uint8_t *)cam_data, (const uint8_t *)therm_data,
-                                          cam_width, cam_height, therm_width, therm_height);
+        // 2. Visible Canny Edges & Euclidean Distance Transform Field
+        cv::Mat im_cam(cam_height, cam_width, CV_8UC1, reinterpret_cast<uint8_t *>(cam_data));
+        cv::Mat dist_map = RgbDistanceField::compute(im_cam);
+
+        if (dist_map.empty()) {
+            LOGW("nativeAutoCalibrate: Failed to compute RGB distance field");
+            res.status = INSUFFICIENT_RGB_EDGES;
+        } else {
+            // 3. Run Chamfer Alignment
+            TccaConfig cfg;
+            cfg.scale_min = 0.85f;
+            cfg.scale_max = 1.35f;
+            cfg.dx_min = -120.0f;
+            cfg.dx_max = 80.0f;
+            cfg.dy_min = -40.0f;
+            cfg.dy_max = 20.0f;
+            cfg.expected_dx = -23.0f;
+            cfg.expected_dy = -10.0f;
+
+            AlignAlgorithm algo = (g_align_mode == TCCA_PHYS) ? TCCA_PHYS : TCCA_FAST;
+            LOGI("nativeAutoCalibrate: Running TCCA (%s)...", (algo == TCCA_PHYS) ? "TCCA-Phys" : "TCCA-Fast");
+
+            res = ChamferAligner::align(tc, dist_map, algo, cfg);
+            LOGI("nativeAutoCalibrate: Result dx=%.1f, dy=%.1f, scale=%.2f, score=%.2f, time=%.1fms",
+                 res.dx, res.dy, res.scale, res.score, res.runtimeMs);
+        }
     }
 
     env->ReleaseByteArrayElements(camData, cam_data, JNI_ABORT);
     env->ReleaseByteArrayElements(thermData, therm_data, JNI_ABORT);
 
     if (res.success && res.status == ALIGN_OK) {
-        // Apply directly to active runtime warp without corrupting static hardware calibration
         g_image.offset_x = (int)std::round(res.dx);
         g_image.offset_y = (int)std::round(res.dy);
         g_image.scale = res.scale <= 0.1f ? 1.0f : res.scale;
+        g_image.rotation = 0.0f;
         g_image.mirror_x = false;
     }
 
     if (results != nullptr) {
         jsize len = env->GetArrayLength(results);
         if (len >= 6) {
+            float est_dist = 0.5f;
+            if (std::abs(res.dx) > 1.0f) {
+                est_dist = std::max(0.2f, std::min(2.5f, 22.1f / std::abs(res.dx)));
+            }
             jfloat res_tab[6] = {
                 res.dx,
                 res.dy,
                 res.scale,
-                res.distance,
+                est_dist,
                 res.confidence,
-                res.psr
+                res.score
             };
             env->SetFloatArrayRegion(results, 0, 6, res_tab);
         }

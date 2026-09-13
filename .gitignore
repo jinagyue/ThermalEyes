@@ -89,4 +89,5 @@ ehthumbs.db
 *.tmp
 *~
 *.swp
+*.dll
 /software/com/

@@ -179,12 +179,12 @@
                         android:id="@+id/rbAlignTga"
                         style="@style/FragmentCameraControlsRadioButton"
                         android:layout_marginEnd="16dp"
-                        android:text="工程 (TGA)" />
+                        android:text="工程 (TCCA-Fast)" />
 
                     <RadioButton
                         android:id="@+id/rbAlignPctva"
                         style="@style/FragmentCameraControlsRadioButton"
-                        android:text="论文 (PCTVA)" />
+                        android:text="论文 (TCCA-Phys)" />
                 </RadioGroup>
             </LinearLayout>
 

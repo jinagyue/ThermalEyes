@@ -36,9 +36,12 @@ public abstract class ImageFusion extends Thread {
     public static final int ALIGN_RANGE_LIMITED = 5;
     public static final int ALIGN_INTERNAL_ERROR = 6;
 
-    // Dual-algorithm modes
-    public static final int ALIGN_MODE_TGA = 0;   // 🚀 工程模式 (Thermal Guided Alignment, 快速稳定)
-    public static final int ALIGN_MODE_PCTVA = 1; // 🧪 论文模式 (Physics-Constrained Thermal-Visible Alignment, 逆深度能量优化)
+    // Dual-algorithm alignment modes (TCCA)
+    public static final int ALIGN_MODE_TCCA_FAST = 0; // 工程模式 (TCCA-Fast, 快速稳定)
+    public static final int ALIGN_MODE_TCCA_PHYS = 1; // 论文/物理约束模式 (TCCA-Phys)
+    // Backward-compatible aliases
+    public static final int ALIGN_MODE_TGA = ALIGN_MODE_TCCA_FAST;
+    public static final int ALIGN_MODE_PCTVA = ALIGN_MODE_TCCA_PHYS;
 
     public interface OnAutoCalibrateCallback {
         void onSuccess(int offsetX, int offsetY, float scale, float distance, float score);
