@@ -21,139 +21,190 @@ AlignmentResult ThermalGuidedAligner::align(const uint8_t *cam_y, const uint8_t 
         return res;
     }
 
-    // --- STEP 2: Predict Projected Visible Coordinates ---
+    // --- STEP 2: Scale Thermal Contour to Visible Coordinates ---
     float scale_x = (float)cam_width / (float)therm_width;   // e.g. 640 / 32 = 20.0f
     float scale_y = (float)cam_height / (float)therm_height; // e.g. 480 / 24 = 20.0f
 
-    float x0 = target.cx * scale_x;
-    float y0 = target.cy * scale_y;
+    size_t cnt_size = target.contour.size();
+    if (cnt_size < 4) {
+        LOGW("TGA: Target contour too few points (%zu)", cnt_size);
+        res.status = ALIGN_NO_TARGET;
+        return res;
+    }
 
-    // Nominal physical parallax displacement: dx ~ 40px, dy ~ -5px
-    float nominal_dx = 40.0f;
-    float nominal_dy = CalibrationModel::DEFAULT_BASE_Y;
+    // Uniformly sample ~40 contour points along perimeter
+    std::vector<cv::Point2f> therm_pts;
+    int step = std::max(1, (int)cnt_size / 40);
+    float min_tx = 1e9f, max_tx = -1e9f, min_ty = 1e9f, max_ty = -1e9f;
 
-    float pred_xv = x0 + nominal_dx;
-    float pred_yv = y0 + nominal_dy;
-
-    // Target dimensions in visible scale
-    float exp_w = (float)target.bbox.width * scale_x;
-    float exp_h = (float)target.bbox.height * scale_y;
-    float exp_area = exp_w * exp_h;
+    for (size_t i = 0; i < cnt_size; i += step) {
+        float px = (float)target.contour[i].x * scale_x;
+        float py = (float)target.contour[i].y * scale_y;
+        therm_pts.emplace_back(px, py);
+        min_tx = std::min(min_tx, px);
+        max_tx = std::max(max_tx, px);
+        min_ty = std::min(min_ty, py);
+        max_ty = std::max(max_ty, py);
+    }
 
     // --- STEP 3: Define Visible Search ROI ---
-    // Expanded ROI around the predicted center to capture range dx in [10, 105], dy in [-20, 25]
-    int roi_w = std::min(cam_width, (int)std::round(exp_w + 160.0f));
-    int roi_h = std::min(cam_height, (int)std::round(exp_h + 120.0f));
+    // Physical disparity constraints: dx in [10, 105], dy in [-20, 25]
+    int roi_x1 = std::max(0, (int)std::floor(min_tx + 10.0f - 16.0f));
+    int roi_y1 = std::max(0, (int)std::floor(min_ty - 20.0f - 16.0f));
+    int roi_x2 = std::min(cam_width, (int)std::ceil(max_tx + 105.0f + 16.0f));
+    int roi_y2 = std::min(cam_height, (int)std::ceil(max_ty + 25.0f + 16.0f));
 
-    int roi_x = (int)std::round(pred_xv - (float)roi_w / 2.0f);
-    int roi_y = (int)std::round(pred_yv - (float)roi_h / 2.0f);
+    int roi_w = roi_x2 - roi_x1;
+    int roi_h = roi_y2 - roi_y1;
 
-    // Clamp ROI strictly within visible bounds
-    roi_x = std::max(0, std::min(cam_width - roi_w, roi_x));
-    roi_y = std::max(0, std::min(cam_height - roi_h, roi_y));
-
-    if (roi_w <= 20 || roi_h <= 20) {
-        LOGW("TGA: Invalid ROI dimensions [%d, %d]", roi_w, roi_h);
+    if (roi_w < 30 || roi_h < 30) {
+        LOGW("TGA: Search ROI too small [%d, %d]", roi_w, roi_h);
         res.status = ALIGN_AMBIGUOUS;
         return res;
     }
 
-    cv::Rect search_roi(roi_x, roi_y, roi_w, roi_h);
+    cv::Rect search_roi(roi_x1, roi_y1, roi_w, roi_h);
     cv::Mat im_cam(cam_height, cam_width, CV_8UC1, const_cast<uint8_t *>(cam_y));
     cv::Mat cam_sub = im_cam(search_roi);
 
-    // --- STEP 4: Visible Contour Detection in ROI ---
-    cv::Mat cam_blur, cam_edges;
+    // --- STEP 4: Local Distance Transform on Visible ROI Edges ---
+    cv::Mat cam_blur, cam_edges, dist_roi;
     cv::GaussianBlur(cam_sub, cam_blur, cv::Size(3, 3), 1.0);
-    cv::Canny(cam_blur, cam_edges, 35, 95);
+    cv::Canny(cam_blur, cam_edges, 30, 90);
 
-    std::vector<std::vector<cv::Point>> v_contours;
-    cv::findContours(cam_edges, v_contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_NONE);
+    // Euclidean distance transform (0 at edges, positive elsewhere)
+    cv::distanceTransform(~cam_edges, dist_roi, cv::DIST_L2, 3);
 
-    if (v_contours.empty()) {
-        LOGW("TGA: No visible contours in ROI");
+    // --- STEP 5: Chamfer Distance Field Grid Search ---
+    const float sigma = 3.5f;
+    const float two_sig_sq = 2.0f * sigma * sigma;
+
+    float best_score = -1e9f;
+    float best_dx = 35.0f;
+    float best_dy = CalibrationModel::DEFAULT_BASE_Y;
+
+    std::vector<float> all_scores;
+    all_scores.reserve(50 * 25);
+
+    // Coarse search: step = 2px
+    for (int idx = 12; idx <= 102; idx += 2) {
+        float dx = (float)idx;
+        for (int idy = -18; idy <= 22; idy += 2) {
+            float dy = (float)idy;
+
+            float point_sum = 0.0f;
+            int in_bounds = 0;
+
+            for (const auto& pt : therm_pts) {
+                float rx = pt.x + dx - (float)roi_x1;
+                float ry = pt.y + dy - (float)roi_y1;
+                int ix = (int)std::round(rx);
+                int iy = (int)std::round(ry);
+
+                if (ix >= 0 && ix < roi_w && iy >= 0 && iy < roi_h) {
+                    float d = dist_roi.at<float>(iy, ix);
+                    point_sum += (d < 12.0f) ? std::exp(-(d * d) / two_sig_sq) : 0.0f;
+                    in_bounds++;
+                }
+            }
+
+            if (in_bounds < (int)(therm_pts.size() * 0.45f)) {
+                continue;
+            }
+
+            float raw_score = point_sum / (float)therm_pts.size();
+            // Small regularizer to gently penalize large vertical drift from DEFAULT_BASE_Y
+            float reg_score = raw_score - 0.0003f * (dy - CalibrationModel::DEFAULT_BASE_Y) * (dy - CalibrationModel::DEFAULT_BASE_Y);
+            all_scores.push_back(raw_score);
+
+            if (reg_score > best_score) {
+                best_score = reg_score;
+                best_dx = dx;
+                best_dy = dy;
+            }
+        }
+    }
+
+    if (all_scores.empty() || best_score < 0.08f) {
+        LOGW("TGA: Low overall match score (%.3f)", best_score);
         res.status = ALIGN_AMBIGUOUS;
         return res;
     }
 
-    // Match candidate contour closest in size, shape, and proximity
-    float best_match_score = -1e9f;
-    float best_xv = pred_xv;
-    float best_yv = pred_yv;
-    bool found_candidate = false;
+    // Fine local search: step = 1px around best_dx, best_dy
+    float fine_dx = best_dx;
+    float fine_dy = best_dy;
+    float fine_best_score = best_score;
 
-    float exp_aspect = exp_w / std::max(1.0f, exp_h);
+    for (float fdx = best_dx - 2.0f; fdx <= best_dx + 2.0f; fdx += 1.0f) {
+        for (float fdy = best_dy - 2.0f; fdy <= best_dy + 2.0f; fdy += 1.0f) {
+            float point_sum = 0.0f;
+            int in_bounds = 0;
 
-    for (const auto& c : v_contours) {
-        if (c.size() < 12) continue;
-        double a = cv::contourArea(c);
-        cv::Rect r = cv::boundingRect(c);
-        if (r.width < 10 || r.height < 10) continue;
+            for (const auto& pt : therm_pts) {
+                float rx = pt.x + fdx - (float)roi_x1;
+                float ry = pt.y + fdy - (float)roi_y1;
+                int ix = (int)std::round(rx);
+                int iy = (int)std::round(ry);
 
-        float c_aspect = (float)r.width / (float)r.height;
-        float aspect_diff = std::abs(c_aspect - exp_aspect);
+                if (ix >= 0 && ix < roi_w && iy >= 0 && iy < roi_h) {
+                    float d = dist_roi.at<float>(iy, ix);
+                    point_sum += (d < 12.0f) ? std::exp(-(d * d) / two_sig_sq) : 0.0f;
+                    in_bounds++;
+                }
+            }
 
-        // Centroid of contour in full visible image coordinates
-        cv::Moments m = cv::moments(c);
-        float cx_local = (m.m00 > 1e-4) ? (float)(m.m10 / m.m00) : ((float)r.x + (float)r.width / 2.0f);
-        float cy_local = (m.m00 > 1e-4) ? (float)(m.m01 / m.m00) : ((float)r.y + (float)r.height / 2.0f);
-
-        float cand_xv = (float)roi_x + cx_local;
-        float cand_yv = (float)roi_y + cy_local;
-
-        float cand_dx = cand_xv - x0;
-        float cand_dy = cand_yv - y0;
-
-        // Strict physical bounds pruning
-        if (!CalibrationModel::isPhysicallyFeasible(cand_dx, cand_dy)) {
-            continue;
-        }
-
-        // Feature scoring: size similarity + shape similarity - deviation from epipolar prediction
-        float area_ratio = (float)a / std::max(1.0f, exp_area);
-        if (area_ratio > 4.0f || area_ratio < 0.15f) continue;
-
-        float size_penalty = std::abs(std::log(std::max(0.1f, area_ratio)));
-        float dist_penalty = (std::abs(cand_dy - nominal_dy) / 20.0f) + (std::abs(cand_dx - nominal_dx) / 60.0f);
-        float score = 2.0f - (size_penalty * 0.5f + aspect_diff * 0.5f + dist_penalty * 0.4f);
-
-        if (score > best_match_score) {
-            best_match_score = score;
-            best_xv = cand_xv;
-            best_yv = cand_yv;
-            found_candidate = true;
+            if (in_bounds >= (int)(therm_pts.size() * 0.45f)) {
+                float raw_sc = point_sum / (float)therm_pts.size();
+                float reg_sc = raw_sc - 0.0003f * (fdy - CalibrationModel::DEFAULT_BASE_Y) * (fdy - CalibrationModel::DEFAULT_BASE_Y);
+                if (reg_sc > fine_best_score) {
+                    fine_best_score = reg_sc;
+                    fine_dx = fdx;
+                    fine_dy = fdy;
+                }
+            }
         }
     }
 
-    if (!found_candidate) {
-        LOGW("TGA: No physically feasible visible contour matched");
-        res.status = ALIGN_AMBIGUOUS;
-        return res;
-    }
+    // --- STEP 6: Confidence (PSR) & Validation ---
+    float sum_sc = 0.0f;
+    for (float s : all_scores) sum_sc += s;
+    float mean_sc = sum_sc / (float)all_scores.size();
 
-    // --- STEP 5: Disparity Calculation & Boundary Checks ---
-    float final_dx = best_xv - x0;
-    float final_dy = best_yv - y0;
+    float var_sc = 0.0f;
+    for (float s : all_scores) var_sc += (s - mean_sc) * (s - mean_sc);
+    float std_sc = std::sqrt(var_sc / (float)all_scores.size());
+    float psr = (std_sc > 1e-4f) ? (fine_best_score - mean_sc) / std_sc : 3.0f;
 
-    LOGI("TGA: Computed (dx=%.1f, dy=%.1f), best_score=%.2f", final_dx, final_dy, best_match_score);
+    LOGI("TGA EVAL: dx=%.1f, dy=%.1f, score=%.3f, psr=%.2f, mean=%.3f",
+         fine_dx, fine_dy, fine_best_score, psr, mean_sc);
 
-    if (final_dx <= 11.0f || final_dx >= 104.0f || final_dy <= -19.0f || final_dy >= 24.0f) {
-        LOGW("TGA: Result at search boundary (dx=%.1f, dy=%.1f) -> ALIGN_RANGE_LIMITED", final_dx, final_dy);
+    // Boundary check
+    if (fine_dx <= 11.0f || fine_dx >= 104.0f || fine_dy <= -19.0f || fine_dy >= 24.0f) {
+        LOGW("TGA: Boundary hit (dx=%.1f, dy=%.1f) -> ALIGN_RANGE_LIMITED", fine_dx, fine_dy);
         res.status = ALIGN_RANGE_LIMITED;
         return res;
     }
 
-    float Z = CalibrationModel::estimateDistance(final_dx);
+    // Reject ambiguous matches only when both score and PSR are excessively poor
+    if (fine_best_score < 0.10f && psr < 1.8f) {
+        LOGW("TGA: Ambiguous match rejected (score=%.3f, psr=%.2f)", fine_best_score, psr);
+        res.status = ALIGN_AMBIGUOUS;
+        return res;
+    }
+
+    float Z = CalibrationModel::estimateDistance(fine_dx);
 
     res.success = true;
     res.status = ALIGN_OK;
-    res.dx = final_dx;
-    res.dy = final_dy;
+    res.dx = fine_dx;
+    res.dy = fine_dy;
     res.scale = 1.0f;
     res.distance = Z;
-    res.confidence = std::max(0.40f, std::min(0.95f, 0.5f + best_match_score * 0.25f));
-    res.psr = 6.0f + best_match_score * 2.0f;
+    res.confidence = std::max(0.40f, std::min(0.98f, fine_best_score * 1.5f));
+    res.psr = psr;
 
-    LOGI("TGA SUCCESS: Z=%.2fm, dx=%.1f, dy=%.1f, conf=%.2f", Z, final_dx, final_dy, res.confidence);
+    LOGI("TGA SUCCESS: Z=%.2fm, dx=%.1f, dy=%.1f, conf=%.2f, psr=%.2f",
+         Z, fine_dx, fine_dy, res.confidence, psr);
     return res;
 }
