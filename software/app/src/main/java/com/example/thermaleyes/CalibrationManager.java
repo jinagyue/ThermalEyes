@@ -23,6 +23,7 @@ public class CalibrationManager {
     public static final String KEY_PARALLAX_AX = "calib_parallax_ax";
     public static final String KEY_PARALLAX_BX = "calib_parallax_bx";
     public static final String KEY_BASE_OFFSET_Y = "calib_base_offset_y";
+    public static final String KEY_ALIGN_MODE = "calib_align_mode";
 
     // Defaults
     public static final int DEFAULT_OFFSET_X = 25;
@@ -37,6 +38,7 @@ public class CalibrationManager {
     public static final float DEFAULT_ISOTHERM_TEMP = 50.0f;
     public static final boolean DEFAULT_MIRROR_X = false;
     public static final boolean DEFAULT_MIRROR_Y = false;
+    public static final int DEFAULT_ALIGN_MODE = ImageFusion.ALIGN_MODE_TGA;
 
     // Initial empirical values.
     // Must be re-fitted using actual multi-distance calibration measurements.
@@ -57,6 +59,7 @@ public class CalibrationManager {
         public float isothermTemp = DEFAULT_ISOTHERM_TEMP;
         public boolean mirrorX = DEFAULT_MIRROR_X;
         public boolean mirrorY = DEFAULT_MIRROR_Y;
+        public int alignMode = DEFAULT_ALIGN_MODE;
 
         // Physical parallax model parameters
         public float parallaxAx = DEFAULT_PARALLAX_AX;
@@ -84,6 +87,7 @@ public class CalibrationManager {
         data.parallaxAx = sp.getFloat(KEY_PARALLAX_AX, DEFAULT_PARALLAX_AX);
         data.parallaxBx = sp.getFloat(KEY_PARALLAX_BX, DEFAULT_PARALLAX_BX);
         data.baseOffsetY = sp.getInt(KEY_BASE_OFFSET_Y, sp.getInt(KEY_OFFSET_Y, DEFAULT_BASE_OFFSET_Y));
+        data.alignMode = sp.getInt(KEY_ALIGN_MODE, DEFAULT_ALIGN_MODE);
         return data;
     }
 
@@ -105,6 +109,7 @@ public class CalibrationManager {
                 .putFloat(KEY_PARALLAX_AX, data.parallaxAx)
                 .putFloat(KEY_PARALLAX_BX, data.parallaxBx)
                 .putInt(KEY_BASE_OFFSET_Y, data.baseOffsetY)
+                .putInt(KEY_ALIGN_MODE, data.alignMode)
                 .apply();
     }
 

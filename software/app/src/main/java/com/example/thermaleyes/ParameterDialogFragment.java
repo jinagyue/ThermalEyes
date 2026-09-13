@@ -81,6 +81,9 @@ public class ParameterDialogFragment extends DialogFragment {
         mBinding.btnCameraControlsSave.setOnClickListener(v -> {
             CalibrationManager.CalibrationData currentData = getCurrentParam();
             CalibrationManager.save(requireContext(), currentData);
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).updateAlignButtonDisplay();
+            }
             Toast.makeText(requireContext(), R.string.calib_saved_tip, Toast.LENGTH_SHORT).show();
         });
     }
@@ -109,6 +112,7 @@ public class ParameterDialogFragment extends DialogFragment {
             param.colorTab = mImageFusion.getColorTab();
             param.fusionMode = mImageFusion.getMode();
             param.mirrorX = mImageFusion.isMirrorX();
+            param.alignMode = mImageFusion.getAlignMode();
         }
         if (mThermalDevice != null) {
             param.fps = mThermalDevice.getFPS();
@@ -120,6 +124,7 @@ public class ParameterDialogFragment extends DialogFragment {
         if (mImageFusion != null) {
             mImageFusion.setMirror(data.mirrorX, false);
             mImageFusion.setCalibration(data.offsetX, data.offsetY, data.scale, data.rotation);
+            mImageFusion.setAlignMode(data.alignMode);
         }
         if (mThermalDevice != null) {
             mThermalDevice.setFPS(data.fps);
@@ -163,6 +168,12 @@ public class ParameterDialogFragment extends DialogFragment {
                 true,
                 new int[]{ ThermalDevice.FPS_4, ThermalDevice.FPS_8},
                 param.fps);
+
+        if (param.alignMode == ImageFusion.ALIGN_MODE_PCTVA) {
+            mBinding.rbAlignPctva.setChecked(true);
+        } else {
+            mBinding.rbAlignTga.setChecked(true);
+        }
     }
 
     private void setAllControlChangeListener() {
@@ -206,6 +217,13 @@ public class ParameterDialogFragment extends DialogFragment {
                 fps = ThermalDevice.FPS_8;
             }
             mThermalDevice.setFPS(fps);
+        });
+
+        mBinding.rgAlignMode.setOnCheckedChangeListener((group, checkedId) -> {
+            int mode = (checkedId == R.id.rbAlignPctva) ? ImageFusion.ALIGN_MODE_PCTVA : ImageFusion.ALIGN_MODE_TGA;
+            if (mImageFusion != null) {
+                mImageFusion.setAlignMode(mode);
+            }
         });
     }
 

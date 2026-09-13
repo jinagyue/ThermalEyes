@@ -81,6 +81,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private TextView mEmissivityTextView;
     private TextView mBtnModeFusion, mBtnModeThermal, mBtnModeVisible, mBtnQuickPalette;
     private View mQuickAlignButton, mShutterButton, mQuickSettingsButton;
+    private TextView mTvQuickAlignLabel;
     private TextView mBtnQuickMirror;
     private ThermalTrendView mThermalTrendView;
 
@@ -409,6 +410,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mBtnQuickPalette = findViewById(R.id.btnQuickPalette);
 
         mQuickAlignButton = findViewById(R.id.llQuickAlign);
+        mTvQuickAlignLabel = findViewById(R.id.tvQuickAlignLabel);
         mShutterButton = findViewById(R.id.flShutterButton);
         mQuickSettingsButton = findViewById(R.id.llQuickSettings);
         mBtnQuickMirror = findViewById(R.id.btnQuickMirror);
@@ -524,28 +526,40 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         // Auto Align
         if (mQuickAlignButton != null) {
+            updateAlignButtonDisplay();
             mQuickAlignButton.setOnClickListener(v -> {
                 if (mImageFusion == null) {
                     Toast.makeText(this, "设备未连接", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                Toast.makeText(this, R.string.auto_calib_running, Toast.LENGTH_SHORT).show();
+                int mode = mImageFusion.getAlignMode();
+                String modeName = (mode == ImageFusion.ALIGN_MODE_TGA) ? "TGA工程模式" : "PCTVA论文模式";
+                Toast.makeText(this, "[" + modeName + "] 正在智能对齐，请保持目标完整稳定...", Toast.LENGTH_SHORT).show();
                 mImageFusion.autoCalibrate(new ImageFusion.OnAutoCalibrateCallback() {
                     @Override
                     public void onSuccess(int offsetX, int offsetY, float scale, float distance, float score) {
                         runOnUiThread(() -> {
-                            // Decoupled architecture: do NOT overwrite persistent hardware calibration in CalibrationManager!
+                            String modeTag = (mode == ImageFusion.ALIGN_MODE_TGA) ? "TGA工程" : "PCTVA论文";
                             String msg = String.format(Locale.getDefault(),
-                                    "光轴智能对齐完成\n距离: %.2f m | X: %d px, Y: %d px", distance, offsetX, offsetY);
-                            Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show();
+                                    "[%s] 对齐成功\n物距: %.2f m | 视差: X=%d px, Y=%d px\n置信度: %.2f",
+                                    modeTag, distance, offsetX, offsetY, score);
+                            Toast.makeText(MainActivity.this, msg, Toast.LENGTH_LONG).show();
                         });
                     }
 
                     @Override
                     public void onFailed(int status, String reason) {
-                        runOnUiThread(() -> Toast.makeText(MainActivity.this, reason, Toast.LENGTH_LONG).show());
+                        runOnUiThread(() -> {
+                            Toast.makeText(MainActivity.this, "[" + modeName + "] 对齐失败:\n" + reason, Toast.LENGTH_LONG).show();
+                        });
                     }
                 });
+            });
+
+            // Long press to switch alignment mode
+            mQuickAlignButton.setOnLongClickListener(v -> {
+                showAlignModeSelectDialog();
+                return true;
             });
         }
 
@@ -717,6 +731,43 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             mBtnQuickMirror.setTextColor(Color.parseColor("#8E8EA0"));
             mBtnQuickMirror.setBackgroundResource(R.drawable.bg_quick_pill);
         }
+    }
+
+    public void updateAlignButtonDisplay() {
+        if (mTvQuickAlignLabel == null) return;
+        int mode = (mImageFusion != null) ? mImageFusion.getAlignMode() : ImageFusion.ALIGN_MODE_TGA;
+        if (mode == ImageFusion.ALIGN_MODE_PCTVA) {
+            mTvQuickAlignLabel.setText("对齐 (论文)");
+            mTvQuickAlignLabel.setTextColor(Color.parseColor("#4DA3FF"));
+        } else {
+            mTvQuickAlignLabel.setText("对齐 (TGA)");
+            mTvQuickAlignLabel.setTextColor(getResources().getColor(R.color.theme_text_secondary, getTheme()));
+        }
+    }
+
+    private void showAlignModeSelectDialog() {
+        final String[] items = {
+                "🚀 工程模式 (TGA - 快速稳定, 推荐移动端实时使用)",
+                "🧪 论文模式 (PCTVA - 物理逆深度优化, 科研实验与真值评测)"
+        };
+        int currentMode = (mImageFusion != null) ? mImageFusion.getAlignMode() : ImageFusion.ALIGN_MODE_TGA;
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("选择自动对齐模式 (长按快捷切换)")
+                .setSingleChoiceItems(items, currentMode, (dialog, which) -> {
+                    int newMode = (which == 1) ? ImageFusion.ALIGN_MODE_PCTVA : ImageFusion.ALIGN_MODE_TGA;
+                    if (mImageFusion != null) {
+                        mImageFusion.setAlignMode(newMode);
+                    }
+                    CalibrationManager.CalibrationData data = CalibrationManager.load(this);
+                    data.alignMode = newMode;
+                    CalibrationManager.save(this, data);
+                    updateAlignButtonDisplay();
+                    String selectedName = (newMode == ImageFusion.ALIGN_MODE_TGA) ? "工程模式 (TGA)" : "论文模式 (PCTVA)";
+                    Toast.makeText(this, "已切换为: " + selectedName, Toast.LENGTH_SHORT).show();
+                    dialog.dismiss();
+                })
+                .setNegativeButton("取消", null)
+                .show();
     }
 
     private void takeSnapshot() {
@@ -895,11 +946,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mImageFusion.setColorTab(savedCalib.colorTab);
         mImageFusion.setMode(savedCalib.fusionMode);
         mImageFusion.setIndustryMode(savedCalib.industryMode, savedCalib.isothermTemp, 0);
+        mImageFusion.setAlignMode(savedCalib.alignMode);
         mCurrentIndustryMode = savedCalib.industryMode;
         mIsothermAlarmTemp = savedCalib.isothermTemp;
         runOnUiThread(() -> {
             updateIndustryButtons(mCurrentIndustryMode);
             updateMirrorButtonState(savedCalib.mirrorX);
+            updateAlignButtonDisplay();
         });
 
         mImageFusion.start();

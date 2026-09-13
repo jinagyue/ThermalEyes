@@ -157,6 +157,37 @@
                 </RadioGroup>
             </LinearLayout>
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp">
+
+                <TextView
+                    style="@style/FragmentCameraControlsTextLeft"
+                    android:text="对齐算法" />
+
+                <RadioGroup
+                    android:id="@+id/rgAlignMode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/rbAlignTga"
+                        style="@style/FragmentCameraControlsRadioButton"
+                        android:layout_marginEnd="16dp"
+                        android:text="工程 (TGA)" />
+
+                    <RadioButton
+                        android:id="@+id/rbAlignPctva"
+                        style="@style/FragmentCameraControlsRadioButton"
+                        android:text="论文 (PCTVA)" />
+                </RadioGroup>
+            </LinearLayout>
+
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
