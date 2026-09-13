@@ -1,0 +1,57 @@
+{
+  "sample_01_0.2m_hand": {
+    "sample_id": "sample_01_0.2m_hand",
+    "sample_type": "hand",
+    "distance_m": 0.2,
+    "gt_dx": 112.0,
+    "gt_dy": -5.0,
+    "gt_scale": 1.15,
+    "ambient_c": 21.5,
+    "target_c": 34.0,
+    "add_clutter": false
+  },
+  "sample_02_0.3m_hand": {
+    "sample_id": "sample_02_0.3m_hand",
+    "sample_type": "hand",
+    "distance_m": 0.3,
+    "gt_dx": 75.0,
+    "gt_dy": -5.0,
+    "gt_scale": 1.05,
+    "ambient_c": 21.5,
+    "target_c": 34.0,
+    "add_clutter": false
+  },
+  "sample_03_0.5m_device": {
+    "sample_id": "sample_03_0.5m_device",
+    "sample_type": "device",
+    "distance_m": 0.5,
+    "gt_dx": 46.0,
+    "gt_dy": -5.0,
+    "gt_scale": 1.0,
+    "ambient_c": 22.0,
+    "target_c": 52.0,
+    "add_clutter": false
+  },
+  "sample_04_1.0m_body": {
+    "sample_id": "sample_04_1.0m_body",
+    "sample_type": "body",
+    "distance_m": 1.0,
+    "gt_dx": 24.0,
+    "gt_dy": -5.0,
+    "gt_scale": 0.9,
+    "ambient_c": 20.0,
+    "target_c": 35.5,
+    "add_clutter": false
+  },
+  "sample_05_cluttered_bg": {
+    "sample_id": "sample_05_cluttered_bg",
+    "sample_type": "hand",
+    "distance_m": 0.4,
+    "gt_dx": 57.0,
+    "gt_dy": -5.0,
+    "gt_scale": 1.0,
+    "ambient_c": 21.5,
+    "target_c": 34.0,
+    "add_clutter": true
+  }
+}

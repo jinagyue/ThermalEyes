@@ -1,0 +1,11 @@
+{
+  "sample_id": "sample_04_1.0m_body",
+  "sample_type": "body",
+  "distance_m": 1.0,
+  "gt_dx": 24.0,
+  "gt_dy": -5.0,
+  "gt_scale": 0.9,
+  "ambient_c": 20.0,
+  "target_c": 35.5,
+  "add_clutter": false
+}

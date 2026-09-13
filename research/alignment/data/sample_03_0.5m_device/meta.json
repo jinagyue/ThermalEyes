@@ -1,0 +1,11 @@
+{
+  "sample_id": "sample_03_0.5m_device",
+  "sample_type": "device",
+  "distance_m": 0.5,
+  "gt_dx": 46.0,
+  "gt_dy": -5.0,
+  "gt_scale": 1.0,
+  "ambient_c": 22.0,
+  "target_c": 52.0,
+  "add_clutter": false
+}

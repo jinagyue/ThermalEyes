@@ -1,0 +1,11 @@
+{
+  "sample_id": "sample_02_0.3m_hand",
+  "sample_type": "hand",
+  "distance_m": 0.3,
+  "gt_dx": 75.0,
+  "gt_dy": -5.0,
+  "gt_scale": 1.05,
+  "ambient_c": 21.5,
+  "target_c": 34.0,
+  "add_clutter": false
+}
