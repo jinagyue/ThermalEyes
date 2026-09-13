@@ -27,6 +27,9 @@ add_library( # Sets the name of the library.
              # Provides a relative path to your source file(s).
              image_fusion.cpp
              alignment/CalibrationModel.cpp
+             alignment/ThermalContourExtractor.cpp
+             alignment/RgbDistanceField.cpp
+             alignment/ChamferAligner.cpp
              alignment/ThermalPreprocess.cpp
              alignment/ThermalTargetDetector.cpp
              alignment/ThermalGuidedAligner.cpp
