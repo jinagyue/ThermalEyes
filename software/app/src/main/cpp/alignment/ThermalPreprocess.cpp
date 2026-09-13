@@ -25,8 +25,19 @@ ThermalPreprocess::ProcessedThermal ThermalPreprocess::process(const uint8_t *th
         return out;
     }
 
-    // Otsu thresholding for prominent thermal target segmentation
-    cv::threshold(out.smooth, out.binary_mask, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+    // Otsu thresholding as baseline target segmentation
+    cv::Mat dummy;
+    double otsu_val = cv::threshold(out.smooth, dummy, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+
+    // Adaptive lower threshold floor:
+    // When extremities (such as fingers at ~21°C) are cooler than the core palm (~30°C) against a cool room (~17°C),
+    // pure Otsu places the threshold around the bimodal midpoint (~25°C), truncating the fingers.
+    // We adjust the threshold downward towards min_val while maintaining a safe margin above background noise.
+    double floor_thresh = out.min_val + std::max(6.0, (otsu_val - out.min_val) * 0.45);
+    cv::threshold(out.smooth, out.binary_mask, floor_thresh, 255, cv::THRESH_BINARY);
+
+    LOGI("ThermalPreprocess: min=%.1f, max=%.1f, otsu=%.1f, floor=%.1f",
+         out.min_val, out.max_val, otsu_val, floor_thresh);
 
     // Morphological close to bridge holes + open to clean isolated speckles
     cv::Mat morph_elem = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3));
