@@ -19,6 +19,11 @@ public class CalibrationManager {
     public static final String KEY_MIRROR_X = "calib_mirror_x";
     public static final String KEY_MIRROR_Y = "calib_mirror_y";
 
+    // Dynamic inverse-depth parallax parameters: dx(Z) = ax / Z + bx
+    public static final String KEY_PARALLAX_AX = "calib_parallax_ax";
+    public static final String KEY_PARALLAX_BX = "calib_parallax_bx";
+    public static final String KEY_BASE_OFFSET_Y = "calib_base_offset_y";
+
     // Defaults
     public static final int DEFAULT_OFFSET_X = 25;
     public static final int DEFAULT_OFFSET_Y = -5;
@@ -33,6 +38,12 @@ public class CalibrationManager {
     public static final boolean DEFAULT_MIRROR_X = false;
     public static final boolean DEFAULT_MIRROR_Y = false;
 
+    // Initial empirical values.
+    // Must be re-fitted using actual multi-distance calibration measurements.
+    public static final float DEFAULT_PARALLAX_AX = 22.1f;
+    public static final float DEFAULT_PARALLAX_BX = 1.5f;
+    public static final int DEFAULT_BASE_OFFSET_Y = -5;
+
     public static class CalibrationData {
         public int offsetX = DEFAULT_OFFSET_X;
         public int offsetY = DEFAULT_OFFSET_Y;
@@ -46,6 +57,11 @@ public class CalibrationManager {
         public float isothermTemp = DEFAULT_ISOTHERM_TEMP;
         public boolean mirrorX = DEFAULT_MIRROR_X;
         public boolean mirrorY = DEFAULT_MIRROR_Y;
+
+        // Physical parallax model parameters
+        public float parallaxAx = DEFAULT_PARALLAX_AX;
+        public float parallaxBx = DEFAULT_PARALLAX_BX;
+        public int baseOffsetY = DEFAULT_BASE_OFFSET_Y;
     }
 
     public static CalibrationData load(Context context) {
@@ -63,6 +79,11 @@ public class CalibrationManager {
         data.isothermTemp = sp.getFloat(KEY_ISOTHERM_TEMP, DEFAULT_ISOTHERM_TEMP);
         data.mirrorX = sp.getBoolean(KEY_MIRROR_X, DEFAULT_MIRROR_X);
         data.mirrorY = sp.getBoolean(KEY_MIRROR_Y, DEFAULT_MIRROR_Y);
+
+        // Inverse-depth parallax model parameters (backwards compatible with KEY_OFFSET_Y)
+        data.parallaxAx = sp.getFloat(KEY_PARALLAX_AX, DEFAULT_PARALLAX_AX);
+        data.parallaxBx = sp.getFloat(KEY_PARALLAX_BX, DEFAULT_PARALLAX_BX);
+        data.baseOffsetY = sp.getInt(KEY_BASE_OFFSET_Y, sp.getInt(KEY_OFFSET_Y, DEFAULT_BASE_OFFSET_Y));
         return data;
     }
 
@@ -81,6 +102,9 @@ public class CalibrationManager {
                 .putFloat(KEY_ISOTHERM_TEMP, data.isothermTemp)
                 .putBoolean(KEY_MIRROR_X, data.mirrorX)
                 .putBoolean(KEY_MIRROR_Y, data.mirrorY)
+                .putFloat(KEY_PARALLAX_AX, data.parallaxAx)
+                .putFloat(KEY_PARALLAX_BX, data.parallaxBx)
+                .putInt(KEY_BASE_OFFSET_Y, data.baseOffsetY)
                 .apply();
     }
 

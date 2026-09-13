@@ -27,9 +27,17 @@ public abstract class ImageFusion extends Thread {
     private float mLatestMaxTemp = 0.0f;
     private float mLatestMinTemp = 0.0f;
 
+    public static final int ALIGN_OK = 0;
+    public static final int ALIGN_LOW_CONTRAST = 1;
+    public static final int ALIGN_TARGET_CLIPPED = 2;
+    public static final int ALIGN_TOO_FEW_FEATURES = 3;
+    public static final int ALIGN_AMBIGUOUS = 4;
+    public static final int ALIGN_RANGE_LIMITED = 5;
+    public static final int ALIGN_INTERNAL_ERROR = 6;
+
     public interface OnAutoCalibrateCallback {
-        void onSuccess(int offsetX, int offsetY, float scale, boolean mirrorX);
-        void onFailed(String reason);
+        void onSuccess(int offsetX, int offsetY, float scale, float distance, float score);
+        void onFailed(int status, String reason);
     }
 
     public static final int FUSION_MODE_FUSION = 0;
@@ -55,6 +63,11 @@ public abstract class ImageFusion extends Thread {
     private int mIndustryMode = INDUSTRY_STANDARD;
     private float mIsothermTemp = 50.0f;
     private float mIndustryParam = 0.0f;
+
+    // Dynamic Runtime Alignment (decoupled from persistent static calibration)
+    private volatile int mRuntimeOffsetX = 25;
+    private volatile int mRuntimeOffsetY = -5;
+    private volatile float mEstimatedDistance = 0.8f;
 
     // NV21
     public abstract void onFrame(FrameInfo frame);
@@ -184,7 +197,28 @@ public abstract class ImageFusion extends Thread {
         mAlgoConfig.scale = scale;
         mAlgoConfig.rotation = rotation;
         mAlgoConfig.parallaxOffset = offsetY > 0 ? offsetY : 0;
+        mRuntimeOffsetX = offsetX;
+        mRuntimeOffsetY = offsetY;
         setCalibrationParams(offsetX, offsetY, scale, rotation);
+    }
+
+    public void setRuntimeAlignment(int runtimeDx, int runtimeDy, float distance) {
+        mRuntimeOffsetX = runtimeDx;
+        mRuntimeOffsetY = runtimeDy;
+        mEstimatedDistance = distance;
+        setCalibrationParams(runtimeDx, runtimeDy, mAlgoConfig.scale, mAlgoConfig.rotation);
+    }
+
+    public int getRuntimeOffsetX() {
+        return mRuntimeOffsetX;
+    }
+
+    public int getRuntimeOffsetY() {
+        return mRuntimeOffsetY;
+    }
+
+    public float getEstimatedDistance() {
+        return mEstimatedDistance;
     }
 
     public int getOffsetX() {
@@ -298,13 +332,22 @@ public abstract class ImageFusion extends Thread {
             fusionFrame.maxLoc = mapThermalPointToCamera(thermalFrame.maxLoc,
                     thermalFrame.width, thermalFrame.height,
                     cameraFrame.width, cameraFrame.height,
-                    mAlgoConfig.offsetX, mAlgoConfig.offsetY,
+                    mRuntimeOffsetX, mRuntimeOffsetY,
                     mAlgoConfig.scale, mAlgoConfig.rotation);
 
             fusionFrame.minLoc = mapThermalPointToCamera(thermalFrame.minLoc,
                     thermalFrame.width, thermalFrame.height,
                     cameraFrame.width, cameraFrame.height,
-                    mAlgoConfig.offsetX, mAlgoConfig.offsetY,
+                    mRuntimeOffsetX, mRuntimeOffsetY,
+                    mAlgoConfig.scale, mAlgoConfig.rotation);
+
+            Point rawCenter = (thermalFrame.centerLoc != null)
+                    ? thermalFrame.centerLoc
+                    : new Point(thermalFrame.width / 2, thermalFrame.height / 2);
+            fusionFrame.centerLoc = mapThermalPointToCamera(rawCenter,
+                    thermalFrame.width, thermalFrame.height,
+                    cameraFrame.width, cameraFrame.height,
+                    mRuntimeOffsetX, mRuntimeOffsetY,
                     mAlgoConfig.scale, mAlgoConfig.rotation);
 
             updateIndustryNative();
@@ -332,7 +375,7 @@ public abstract class ImageFusion extends Thread {
 
             if (camSnap == null || thermSnap == null) {
                 if (callback != null) {
-                    callback.onFailed("尚未接收到相机或热成像完整数据，请稍候");
+                    callback.onFailed(ALIGN_INTERNAL_ERROR, "尚未接收到相机或热成像完整数据，请稍候");
                 }
                 return;
             }
@@ -340,28 +383,52 @@ public abstract class ImageFusion extends Thread {
             float deltaT = maxTemp - minTemp;
             if (deltaT > 0 && deltaT < 2.5f) {
                 if (callback != null) {
-                    callback.onFailed(String.format(java.util.Locale.CHINA,
+                    callback.onFailed(ALIGN_LOW_CONTRAST, String.format(java.util.Locale.CHINA,
                             "当前目标温差过小(仅 %.1f℃)，请将手掌靠近镜头或使用热水杯", deltaT));
                 }
                 return;
             }
 
-            float[] results = new float[4];
-            boolean success = nativeAutoCalibrate(camSnap, thermSnap, mCamWidth, mCamHeight,
+            float[] results = new float[6];
+            int status = nativeAutoCalibrate(camSnap, thermSnap, mCamWidth, mCamHeight,
                     mThermWidth, mThermHeight, results);
-            if (success) {
+            if (status == ALIGN_OK) {
                 int ox = Math.round(results[0]);
                 int oy = Math.round(results[1]);
                 float sc = results[2];
-                boolean mirrorX = (results[3] > 0.5f);
-                setMirror(mirrorX, mMirrorY);
-                setCalibration(ox, oy, sc, getRotation());
+                float distance = results[3];
+                float score = results[4];
+
+                // Decoupled: Update dynamic runtime alignment without corrupting persistent static hardware calibration
+                setRuntimeAlignment(ox, oy, distance);
+
                 if (callback != null) {
-                    callback.onSuccess(ox, oy, sc, mirrorX);
+                    callback.onSuccess(ox, oy, sc, distance, score);
                 }
             } else {
+                String reason;
+                switch (status) {
+                    case ALIGN_LOW_CONTRAST:
+                        reason = "目标温差过小，请对准具有明显温差的目标（如手掌或温水杯）";
+                        break;
+                    case ALIGN_TARGET_CLIPPED:
+                        reason = "目标过近，请稍微后移，使目标完整进入画面";
+                        break;
+                    case ALIGN_TOO_FEW_FEATURES:
+                        reason = "未检测到有效轮廓，请更换轮廓清晰的目标后重试";
+                        break;
+                    case ALIGN_AMBIGUOUS:
+                        reason = "背景结构过于复杂，请将目标置于中央区域后重试";
+                        break;
+                    case ALIGN_RANGE_LIMITED:
+                        reason = "目标距离超出可靠对齐范围(0.2~2.5m)，请调整物距后重试";
+                        break;
+                    default:
+                        reason = "光轴自动配准未收敛，请微调目标位置后重试";
+                        break;
+                }
                 if (callback != null) {
-                    callback.onFailed("未检测到清晰轮廓：请将手掌/目标置于 0.5~1 米（约一臂远，露出完整轮廓）后重试");
+                    callback.onFailed(status, reason);
                 }
             }
         }).start();
@@ -435,10 +502,10 @@ public abstract class ImageFusion extends Thread {
     private native void nativeSetMirror(boolean mirrorX, boolean mirrorY);
     private native boolean nativeGetMirrorX();
     private native boolean nativeGetMirrorY();
-    private native boolean nativeAutoCalibrate(byte[] camData, byte[] thermData,
-                                              int camWidth, int camHeight,
-                                              int thermWidth, int thermHeight,
-                                              float[] results);
+    private native int nativeAutoCalibrate(byte[] camData, byte[] thermData,
+                                           int camWidth, int camHeight,
+                                           int thermWidth, int thermHeight,
+                                           float[] results);
 
     private volatile boolean mMirrorX = false;
     private volatile boolean mMirrorY = false;
