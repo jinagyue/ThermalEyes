@@ -10,5 +10,6 @@ public class FrameInfo {
     public float centerVal;
     public Point maxLoc;
     public Point minLoc;
+    public Point centerLoc;
     public byte[] data;
 }

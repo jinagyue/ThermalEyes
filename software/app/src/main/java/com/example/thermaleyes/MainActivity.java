@@ -123,6 +123,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 int ny = minLoc / ThermalDevice.IMAGE_WIDTH;
                 thermInfo.maxLoc = new Point(mx, my);
                 thermInfo.minLoc = new Point(nx, ny);
+                thermInfo.centerLoc = new Point(ThermalDevice.IMAGE_WIDTH / 2, ThermalDevice.IMAGE_HEIGHT / 2);
                 frame.get(thermInfo.data);
 
                 fusion.putThermalImage(thermInfo);
@@ -300,10 +301,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             canvas.drawText(label, badgeX + 6, badgeY - 2, textPaint);
         }
 
-        // 2. Center Point Spot Metering Reticle
+        // 2. Center Point Spot Metering Reticle (mapped with consistent thermal-to-camera transformation)
         if (frame.centerVal > -50f && frame.centerVal < 150f) {
-            int cx = bitmap.getWidth() / 2;
-            int cy = bitmap.getHeight() / 2;
+            int cx = (frame.centerLoc != null) ? (int) (frame.centerLoc.x * xScale) : (bitmap.getWidth() / 2);
+            int cy = (frame.centerLoc != null) ? (int) (frame.centerLoc.y * yScale) : (bitmap.getHeight() / 2);
             int tealColor = Color.parseColor("#00D2A0");
             reticlePaint.setColor(tealColor);
             badgeStroke.setColor(tealColor);
@@ -531,23 +532,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 Toast.makeText(this, R.string.auto_calib_running, Toast.LENGTH_SHORT).show();
                 mImageFusion.autoCalibrate(new ImageFusion.OnAutoCalibrateCallback() {
                     @Override
-                    public void onSuccess(int offsetX, int offsetY, float scale, boolean mirrorX) {
+                    public void onSuccess(int offsetX, int offsetY, float scale, float distance, float score) {
                         runOnUiThread(() -> {
-                            CalibrationManager.CalibrationData data = CalibrationManager.load(MainActivity.this);
-                            data.offsetX = offsetX;
-                            data.offsetY = offsetY;
-                            data.scale = scale;
-                            data.mirrorX = false;
-                            CalibrationManager.save(MainActivity.this, data);
-                            Toast.makeText(MainActivity.this,
-                                    String.format(Locale.getDefault(), "光轴智能对齐成功: X=%d, Y=%d", offsetX, offsetY),
-                                    Toast.LENGTH_LONG).show();
+                            // Decoupled architecture: do NOT overwrite persistent hardware calibration in CalibrationManager!
+                            String msg = String.format(Locale.getDefault(),
+                                    "光轴智能对齐完成\n距离: %.2f m | X: %d px, Y: %d px", distance, offsetX, offsetY);
+                            Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show();
                         });
                     }
 
                     @Override
-                    public void onFailed(String reason) {
-                        runOnUiThread(() -> Toast.makeText(MainActivity.this, reason, Toast.LENGTH_SHORT).show());
+                    public void onFailed(int status, String reason) {
+                        runOnUiThread(() -> Toast.makeText(MainActivity.this, reason, Toast.LENGTH_LONG).show());
                     }
                 });
             });
