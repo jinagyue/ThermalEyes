@@ -86,9 +86,9 @@ static image_data g_image = {
         .cam_uv_k = 1,
         .therm_y_k = 1,
         .therm_uv_k = 1,
-        .parallax_offset = 15,
-        .offset_x = 80,
-        .offset_y = 15,
+        .parallax_offset = 0,
+        .offset_x = 25,
+        .offset_y = -5,
         .scale = 1.0f,
         .rotation = 0.0f,
         .industry_mode = 0,
@@ -478,8 +478,8 @@ static bool align_thermal_gradient(const Mat &im_therm_scaled, const Mat &cam_fi
     Mat therm_mag_8u;
     therm_mag.convertTo(therm_mag_8u, CV_8U, 255.0 / max_g);
 
-    int pad_x = 90;
-    int pad_y = 50;
+    int pad_x = 110;
+    int pad_y = 60;
     int tw = cam_width - 2 * pad_x;
     int th = cam_height - 2 * pad_y;
     if (tw <= 0 || th <= 0) return false;
@@ -490,14 +490,14 @@ static bool align_thermal_gradient(const Mat &im_therm_scaled, const Mat &cam_fi
     Mat match_res;
     matchTemplate(cam_field_8u, therm_template, match_res, TM_CCORR_NORMED);
 
-    // Constrain search exclusively to physically valid parallax range:
-    // MLX90640 is physically displaced to the positive X side on the dongle hardware PCB.
-    // dx must be in [+40, +100] and dy in [-15, +35].
-    // This strictly prevents the optimizer from wandering into negative offsets (opposite direction).
-    int min_dx = 40;
-    int max_dx = 100;
-    int min_dy = -15;
-    int max_dy = 35;
+    // Constrain search to physically valid parallax range across all working distances:
+    // MLX90640 is horizontally adjacent to the RGB camera on the PCB dongle.
+    // Horizontal parallax dx: +10 (far 2-3m), ~25 (normal face 0.8m), ~50 (arm 0.5m), up to ~95-100 (close hand on desk ~0.25m).
+    // Vertical offset dy: [-20, +25] to account for mechanical mounting and perspective pitch.
+    int min_dx = 10;
+    int max_dx = 105;
+    int min_dy = -20;
+    int max_dy = 25;
 
     int roi_x = pad_x + min_dx;
     int roi_y = pad_y + min_dy;
@@ -522,7 +522,17 @@ static bool align_thermal_gradient(const Mat &im_therm_scaled, const Mat &cam_fi
     minMaxLoc(sub_match, nullptr, &max_val, nullptr, &sub_loc);
 
     Point max_loc(sub_loc.x + roi_x, sub_loc.y + roi_y);
-    LOGI("align_thermal_gradient: max_val=%f, loc=(%d, %d)", max_val, max_loc.x, max_loc.y);
+    LOGI("align_thermal_gradient: max_val=%f, loc=(%d, %d), dx=%d, dy=%d",
+         max_val, max_loc.x, max_loc.y, max_loc.x - pad_x, max_loc.y - pad_y);
+
+    // Profile along Y at best X
+    char y_prof[256];
+    int prof_len = 0;
+    for (int y = roi_y; y < roi_y + roi_h; y += 3) {
+        float v = match_res.at<float>(y, max_loc.x);
+        prof_len += snprintf(y_prof + prof_len, sizeof(y_prof) - prof_len, "dy%d:%.3f ", y - pad_y, v);
+    }
+    LOGI("align_y_profile at dx=%d: %s", max_loc.x - pad_x, y_prof);
 
     if (max_val < 0.20) {
         LOGW("align_thermal_gradient: match correlation too low (%f)", max_val);
@@ -577,8 +587,8 @@ static bool auto_calibrate_core(const uint8_t *cam_y, const uint8_t *therm_data,
     }
 
     out_mirror_x = false;
-    out_x = (float)CLIP(round(dx), 40.0f, 100.0f);
-    out_y = (float)CLIP(round(dy), -15.0f, 35.0f);
+    out_x = (float)CLIP(round(dx), 10.0f, 105.0f);
+    out_y = (float)CLIP(round(dy), -20.0f, 25.0f);
     out_scale = 1.0f;
 
     g_image.mirror_x = false;

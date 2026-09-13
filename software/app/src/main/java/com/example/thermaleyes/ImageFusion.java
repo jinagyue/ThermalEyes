@@ -361,7 +361,7 @@ public abstract class ImageFusion extends Thread {
                 }
             } else {
                 if (callback != null) {
-                    callback.onFailed("未检测到清晰发热轮廓，请调整手掌/水杯距离后重试");
+                    callback.onFailed("未检测到清晰轮廓：请将手掌/目标置于 0.5~1 米（约一臂远，露出完整轮廓）后重试");
                 }
             }
         }).start();
@@ -404,8 +404,8 @@ public abstract class ImageFusion extends Thread {
         public int highFreqRatio;
         public int pseudoColorTab;
         public int parallaxOffset;
-        public int offsetX = 80;
-        public int offsetY = 15;
+        public int offsetX = 25;
+        public int offsetY = -5;
         public float scale = 1.0f;
         public float rotation = 0.0f;
         public float camYK;

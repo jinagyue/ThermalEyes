@@ -20,8 +20,8 @@ public class CalibrationManager {
     public static final String KEY_MIRROR_Y = "calib_mirror_y";
 
     // Defaults
-    public static final int DEFAULT_OFFSET_X = 80;
-    public static final int DEFAULT_OFFSET_Y = 15;
+    public static final int DEFAULT_OFFSET_X = 25;
+    public static final int DEFAULT_OFFSET_Y = -5;
     public static final float DEFAULT_SCALE = 1.0f;
     public static final float DEFAULT_ROTATION = 0.0f;
     public static final int DEFAULT_HIGH_FREQ = ImageFusion.HIGH_FREQ_RATIO_MEDIUM;
