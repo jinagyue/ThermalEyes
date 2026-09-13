@@ -30,10 +30,15 @@ public abstract class ImageFusion extends Thread {
     public static final int ALIGN_OK = 0;
     public static final int ALIGN_LOW_CONTRAST = 1;
     public static final int ALIGN_TARGET_CLIPPED = 2;
-    public static final int ALIGN_TOO_FEW_FEATURES = 3;
+    public static final int ALIGN_NO_TARGET = 3;
+    public static final int ALIGN_TOO_FEW_FEATURES = 3; // Backward-compatible alias
     public static final int ALIGN_AMBIGUOUS = 4;
     public static final int ALIGN_RANGE_LIMITED = 5;
     public static final int ALIGN_INTERNAL_ERROR = 6;
+
+    // Dual-algorithm modes
+    public static final int ALIGN_MODE_TGA = 0;   // 🚀 工程模式 (Thermal Guided Alignment, 快速稳定)
+    public static final int ALIGN_MODE_PCTVA = 1; // 🧪 论文模式 (Physics-Constrained Thermal-Visible Alignment, 逆深度能量优化)
 
     public interface OnAutoCalibrateCallback {
         void onSuccess(int offsetX, int offsetY, float scale, float distance, float score);
@@ -414,8 +419,8 @@ public abstract class ImageFusion extends Thread {
                     case ALIGN_TARGET_CLIPPED:
                         reason = "目标过近，请稍微后移，使目标完整进入画面";
                         break;
-                    case ALIGN_TOO_FEW_FEATURES:
-                        reason = "未检测到有效轮廓，请更换轮廓清晰的目标后重试";
+                    case ALIGN_NO_TARGET:
+                        reason = "未检测到有效热目标，请将目标（手掌/温水杯）置于视野中央";
                         break;
                     case ALIGN_AMBIGUOUS:
                         reason = "背景结构过于复杂，请将目标置于中央区域后重试";
@@ -502,10 +507,20 @@ public abstract class ImageFusion extends Thread {
     private native void nativeSetMirror(boolean mirrorX, boolean mirrorY);
     private native boolean nativeGetMirrorX();
     private native boolean nativeGetMirrorY();
+    private native void nativeSetAlignMode(int mode);
+    private native int nativeGetAlignMode();
     private native int nativeAutoCalibrate(byte[] camData, byte[] thermData,
                                            int camWidth, int camHeight,
                                            int thermWidth, int thermHeight,
                                            float[] results);
+
+    public void setAlignMode(int mode) {
+        nativeSetAlignMode(mode);
+    }
+
+    public int getAlignMode() {
+        return nativeGetAlignMode();
+    }
 
     private volatile boolean mMirrorX = false;
     private volatile boolean mMirrorY = false;

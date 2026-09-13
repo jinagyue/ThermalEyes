@@ -460,375 +460,28 @@ Java_com_example_thermaleyes_ImageFusion_nativeGetMirrorY(JNIEnv *env, jobject t
     return g_image.mirror_y ? JNI_TRUE : JNI_FALSE;
 }
 
-enum AlignStatus {
-    ALIGN_OK = 0,
-    ALIGN_LOW_CONTRAST = 1,
-    ALIGN_TARGET_CLIPPED = 2,
-    ALIGN_TOO_FEW_FEATURES = 3,
-    ALIGN_AMBIGUOUS = 4,
-    ALIGN_RANGE_LIMITED = 5,
-    ALIGN_INTERNAL_ERROR = 6
-};
+#include "alignment/CalibrationModel.h"
+#include "alignment/ThermalGuidedAligner.h"
+#include "alignment/PhysicsAlignment.h"
 
-struct AlignResult {
-    AlignStatus status;
-    float dx;
-    float dy;
-    float scale;
-    float estimatedDistance;
-    float score;
-    float psr;
-};
+static int g_align_mode = ALIGN_MODE_TGA; // Default: 0 = TGA (Engineering Mode)
 
-// Physical parallax model: dx(Z) = ax / Z + bx
-// Initial empirical parameters (Must be re-fitted using actual multi-distance calibration)
-static const float DEFAULT_PARALLAX_AX = 22.1f;    // px * m (at 640x480)
-static const float DEFAULT_PARALLAX_BX = 1.5f;     // px (at 640x480)
-static const float DEFAULT_BASE_OFFSET_Y = -5.0f;  // px (at 640x480)
-
-static const float MIN_DISTANCE_Z = 0.18f;         // meters
-static const float MAX_DISTANCE_Z = 2.50f;         // meters
-
-static std::vector<Point2f> sample_contour_points(const std::vector<Point>& raw_pts,
-                                                  float sx, float sy, float max_step = 2.0f) {
-    std::vector<Point2f> sampled;
-    if (raw_pts.size() < 3) return sampled;
-
-    std::vector<Point2f> base;
-    base.reserve(raw_pts.size());
-    for (const auto& p : raw_pts) {
-        base.emplace_back((p.x + 0.5f) * sx, (p.y + 0.5f) * sy);
-    }
-
-    for (size_t i = 0; i < base.size(); ++i) {
-        Point2f p1 = base[i];
-        Point2f p2 = base[(i + 1) % base.size()];
-        float seg_len = (float)norm(p2 - p1);
-        int steps = std::max(1, (int)std::ceil(seg_len / max_step));
-        for (int s = 0; s < steps; ++s) {
-            float t = (float)s / (float)steps;
-            sampled.push_back(p1 + t * (p2 - p1));
-        }
-    }
-    return sampled;
-}
-
-static void build_distance_field(const Mat& cam_y, int target_w, int target_h,
-                                 Mat& out_dist, Mat& out_field, float sigma = 2.5f) {
-    Mat cam_resized;
-    resize(cam_y, cam_resized, Size(target_w, target_h), 0, 0, INTER_AREA);
-
-    Mat cam_blur, cam_edge;
-    GaussianBlur(cam_resized, cam_blur, Size(3, 3), 1.0);
-    Canny(cam_blur, cam_edge, 35, 100);
-
-    distanceTransform(~cam_edge, out_dist, DIST_L2, 3);
-
-    out_field.create(target_h, target_w, CV_32FC1);
-    float two_sig_sq = 2.0f * sigma * sigma;
-    float max_eval_dist = 3.5f * sigma;
-
-    for (int r = 0; r < target_h; ++r) {
-        const float* d_row = out_dist.ptr<float>(r);
-        float* f_row = out_field.ptr<float>(r);
-        for (int c = 0; c < target_w; ++c) {
-            float d = d_row[c];
-            f_row[c] = (d < max_eval_dist) ? expf(-(d * d) / two_sig_sq) : 0.0f;
-        }
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_thermaleyes_ImageFusion_nativeSetAlignMode(JNIEnv *env, jobject thiz, jint mode) {
+    if (mode == ALIGN_MODE_PCTVA) {
+        g_align_mode = ALIGN_MODE_PCTVA;
+        LOGI("nativeSetAlignMode: Set to RESEARCH (PCTVA)");
+    } else {
+        g_align_mode = ALIGN_MODE_TGA;
+        LOGI("nativeSetAlignMode: Set to APP (TGA)");
     }
 }
 
-static float evaluate_contour_score(const std::vector<Point2f>& pts, const Mat& field,
-                                    float dx, float dy, int width, int height) {
-    if (pts.empty()) return 0.0f;
-    float total_score = 0.0f;
-    int inside_count = 0;
-
-    for (const auto& pt : pts) {
-        float x = pt.x + dx;
-        float y = pt.y + dy;
-        int ix = (int)std::round(x);
-        int iy = (int)std::round(y);
-
-        if (ix >= 0 && ix < width && iy >= 0 && iy < height) {
-            total_score += field.at<float>(iy, ix);
-            inside_count++;
-        }
-    }
-
-    if (inside_count < (int)(pts.size() * 0.40f)) {
-        return 0.0f;
-    }
-
-    return total_score / (float)pts.size();
-}
-
-static AlignResult auto_align_depth_aware(const uint8_t *cam_y, const uint8_t *therm_data,
-                                          int cam_width, int cam_height,
-                                          int therm_width, int therm_height) {
-    AlignResult res = { ALIGN_INTERNAL_ERROR, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f };
-
-    // --- STEP 1: Native 32x24 Thermal Processing & Observability Verification ---
-    Mat im_therm(therm_height, therm_width, CV_8UC1, (uint8_t *)therm_data);
-    double min_val, max_val;
-    minMaxLoc(im_therm, &min_val, &max_val);
-    LOGI("auto_align: therm dynamic range=[%.1f, %.1f], delta=%.1f", min_val, max_val, max_val - min_val);
-
-    // 1A. Low Contrast Check
-    if (max_val - min_val < 3.0) {
-        LOGW("auto_align: thermal contrast too low (%.1f)", max_val - min_val);
-        res.status = ALIGN_LOW_CONTRAST;
-        return res;
-    }
-
-    // 1B. Sensor Hardware Horizontal Flip
-    Mat im_therm_flipped;
-    flip(im_therm, im_therm_flipped, 1);
-
-    // 1C. Native Scale Filtering & Otsu Thermal Segmentation
-    Mat therm_smooth;
-    GaussianBlur(im_therm_flipped, therm_smooth, Size(3, 3), 0.8);
-
-    Mat therm_bin;
-    threshold(therm_smooth, therm_bin, 0, 255, THRESH_BINARY | THRESH_OTSU);
-
-    Mat morph_elem = getStructuringElement(MORPH_ELLIPSE, Size(3, 3));
-    morphologyEx(therm_bin, therm_bin, MORPH_CLOSE, morph_elem);
-    morphologyEx(therm_bin, therm_bin, MORPH_OPEN, morph_elem);
-
-    // 1D. Target Clipped / Field-of-View Overflow Check
-    int total_pixels = therm_width * therm_height;
-    int fg_pixels = countNonZero(therm_bin);
-    float fill_ratio = (float)fg_pixels / (float)total_pixels;
-
-    int border_touch = 0;
-    for (int c = 0; c < therm_bin.cols; ++c) {
-        if (therm_bin.at<uchar>(0, c) > 0) border_touch++;
-        if (therm_bin.at<uchar>(therm_bin.rows - 1, c) > 0) border_touch++;
-    }
-    for (int r = 0; r < therm_bin.rows; ++r) {
-        if (therm_bin.at<uchar>(r, 0) > 0) border_touch++;
-        if (therm_bin.at<uchar>(r, therm_bin.cols - 1) > 0) border_touch++;
-    }
-
-    LOGI("auto_align: fill_ratio=%.2f, border_touch=%d", fill_ratio, border_touch);
-
-    if (fill_ratio > 0.85f || (fill_ratio > 0.78f && border_touch > 14)) {
-        LOGW("auto_align: target clipped or overflowing FOV (fill=%.2f, border=%d)", fill_ratio, border_touch);
-        res.status = ALIGN_TARGET_CLIPPED;
-        return res;
-    }
-
-    // 1E. Extract External Contour
-    std::vector<std::vector<Point>> contours;
-    findContours(therm_bin, contours, RETR_EXTERNAL, CHAIN_APPROX_NONE);
-    if (contours.empty()) {
-        LOGW("auto_align: no contours found");
-        res.status = ALIGN_TOO_FEW_FEATURES;
-        return res;
-    }
-
-    size_t best_c_idx = 0;
-    double max_area = 0.0;
-    for (size_t i = 0; i < contours.size(); ++i) {
-        double a = contourArea(contours[i]);
-        if (a > max_area) {
-            max_area = a;
-            best_c_idx = i;
-        }
-    }
-
-    const std::vector<Point>& best_contour = contours[best_c_idx];
-    if (best_contour.size() < 12 || max_area < 20.0) {
-        LOGW("auto_align: contour too weak (pts=%zu, area=%.1f)", best_contour.size(), max_area);
-        res.status = ALIGN_TOO_FEW_FEATURES;
-        return res;
-    }
-
-    // --- STEP 2: Multi-Scale Stage 1 Coarse Search (160x120) ---
-    const int W1 = 160, H1 = 120;
-    Mat im_cam(cam_height, cam_width, CV_8UC1, (uint8_t *)cam_y);
-
-    Mat dist1, field1;
-    build_distance_field(im_cam, W1, H1, dist1, field1, 2.5f);
-
-    std::vector<Point2f> pts160 = sample_contour_points(best_contour, (float)W1 / therm_width, (float)H1 / therm_height, 2.0f);
-    if (pts160.empty()) {
-        res.status = ALIGN_TOO_FEW_FEATURES;
-        return res;
-    }
-
-    // Stage 1 Parallax Model (scaled by 0.25)
-    float ax160 = DEFAULT_PARALLAX_AX * 0.25f;
-    float bx160 = DEFAULT_PARALLAX_BX * 0.25f;
-    float by160 = DEFAULT_BASE_OFFSET_Y * 0.25f;
-
-    struct Candidate {
-        float q;
-        float Z;
-        int rx;
-        int ry;
-        float dx160;
-        float dy160;
-        float score;
-        float reg_score;
-    };
-
-    std::vector<Candidate> candidates;
-    candidates.reserve(32 * 5 * 5);
-
-    const int N_Q = 32;
-    float min_q = 1.0f / MAX_DISTANCE_Z; // 0.40
-    float max_q = 1.0f / MIN_DISTANCE_Z; // 5.556
-
-    float best_s1 = -1.0f;
-    Candidate best_c1 = { 0, 0, 0, 0, 0, 0, 0, 0 };
-
-    for (int iq = 0; iq < N_Q; ++iq) {
-        float q = min_q + (float)iq * (max_q - min_q) / (float)(N_Q - 1);
-        float Z = 1.0f / q;
-        float pred_dx = ax160 * q + bx160;
-        float pred_dy = by160;
-
-        for (int rx = -2; rx <= 2; ++rx) {
-            for (int ry = -2; ry <= 2; ++ry) {
-                float dx160 = pred_dx + (float)rx;
-                float dy160 = pred_dy + (float)ry;
-
-                float sc = evaluate_contour_score(pts160, field1, dx160, dy160, W1, H1);
-                float reg_sc = sc - 0.003f * (float)(rx * rx + ry * ry);
-
-                Candidate c = { q, Z, rx, ry, dx160, dy160, sc, reg_sc };
-                candidates.push_back(c);
-
-                if (reg_sc > best_s1) {
-                    best_s1 = reg_sc;
-                    best_c1 = c;
-                }
-            }
-        }
-    }
-
-    // --- STEP 3: Multi-Scale Stage 2 Refinement (320x240) ---
-    const int W2 = 320, H2 = 240;
-    Mat dist2, field2;
-    build_distance_field(im_cam, W2, H2, dist2, field2, 2.5f);
-
-    std::vector<Point2f> pts320 = sample_contour_points(best_contour, (float)W2 / therm_width, (float)H2 / therm_height, 2.0f);
-
-    float ax320 = DEFAULT_PARALLAX_AX * 0.5f;
-    float bx320 = DEFAULT_PARALLAX_BX * 0.5f;
-    float by320 = DEFAULT_BASE_OFFSET_Y * 0.5f;
-
-    float best_q = best_c1.q;
-    float q_min_ref = std::max(min_q, best_q * 0.85f);
-    float q_max_ref = std::min(max_q, best_q * 1.15f);
-
-    float best_s2 = -1.0f;
-    float refined_q = best_q;
-    float refined_dx320 = best_c1.dx160 * 2.0f;
-    float refined_dy320 = best_c1.dy160 * 2.0f;
-
-    const int N_Q_REF = 9;
-    for (int iq = 0; iq < N_Q_REF; ++iq) {
-        float q = q_min_ref + (float)iq * (q_max_ref - q_min_ref) / (float)(N_Q_REF - 1);
-        float pred_dx = ax320 * q + bx320;
-        float pred_dy = by320;
-
-        for (int rx = -2; rx <= 2; ++rx) {
-            for (int ry = -2; ry <= 2; ++ry) {
-                float dx320 = pred_dx + (float)rx;
-                float dy320 = pred_dy + (float)ry;
-
-                float sc = evaluate_contour_score(pts320, field2, dx320, dy320, W2, H2);
-                float reg_sc = sc - 0.003f * (float)(rx * rx + ry * ry);
-
-                if (reg_sc > best_s2) {
-                    best_s2 = reg_sc;
-                    refined_q = q;
-                    refined_dx320 = dx320;
-                    refined_dy320 = dy320;
-                }
-            }
-        }
-    }
-
-    // Equivalent Full-Resolution (640x480) Parallax Displacements
-    float dx_640 = refined_dx320 * 2.0f;
-    float dy_640 = refined_dy320 * 2.0f;
-    float Z_est = 1.0f / refined_q;
-
-    // --- STEP 4: Confidence Analysis (Peak Gap & Peak-to-Sidelobe Ratio) ---
-    float second_best_s1 = 0.0f;
-    double side_sum = 0.0;
-    double side_sq_sum = 0.0;
-    int side_count = 0;
-
-    for (const auto& c : candidates) {
-        float dq = std::abs(c.q - best_c1.q);
-        int drx = std::abs(c.rx - best_c1.rx);
-        int dry = std::abs(c.ry - best_c1.ry);
-
-        // Exclusion radius around primary peak
-        if (dq > 0.45f || drx >= 2 || dry >= 2) {
-            if (c.score > second_best_s1) {
-                second_best_s1 = c.score;
-            }
-            side_sum += c.score;
-            side_sq_sum += (double)c.score * c.score;
-            side_count++;
-        }
-    }
-
-    float peak_gap = best_s1 - second_best_s1;
-    float psr = 0.0f;
-    if (side_count > 10) {
-        double mu = side_sum / side_count;
-        double var = (side_sq_sum / side_count) - (mu * mu);
-        double stddev = std::sqrt(std::max(1e-7, var));
-        psr = (float)((best_s1 - mu) / stddev);
-    }
-
-    LOGI("AUTO_ALIGN: Z=%.2fm, dx=%.1f, dy=%.1f, score=%.3f, peakGap=%.3f, psr=%.2f",
-         Z_est, dx_640, dy_640, best_s2, peak_gap, psr);
-
-    // --- STEP 5: Boundary Hit Protection & Triple Criteria Validation ---
-    if (Z_est <= MIN_DISTANCE_Z + 0.015f || Z_est >= MAX_DISTANCE_Z - 0.04f ||
-        dx_640 <= 11.0f || dx_640 >= 104.0f) {
-        LOGW("AUTO_ALIGN: boundary hit detected (Z=%.2fm, dx=%.1f), rejecting as RANGE_LIMITED", Z_est, dx_640);
-        res.status = ALIGN_RANGE_LIMITED;
-        return res;
-    }
-
-    bool score_ok = (best_s2 >= 0.28f);
-    bool gap_ok = (peak_gap >= 0.035f);
-    bool psr_ok = (psr >= 3.8f);
-
-    if (!score_ok || (!gap_ok && !psr_ok)) {
-        LOGW("AUTO_ALIGN: confidence criteria not met (score=%.3f, gap=%.3f, psr=%.2f), rejecting as AMBIGUOUS",
-             best_s2, peak_gap, psr);
-        res.status = ALIGN_AMBIGUOUS;
-        return res;
-    }
-
-    // Success: Update runtime parameters
-    res.status = ALIGN_OK;
-    res.dx = dx_640;
-    res.dy = dy_640;
-    res.scale = 1.0f;
-    res.estimatedDistance = Z_est;
-    res.score = best_s2;
-    res.psr = psr;
-
-    // Apply directly to active runtime warp without changing static hardware calibration
-    g_image.offset_x = (int)std::round(dx_640);
-    g_image.offset_y = (int)std::round(dy_640);
-    g_image.scale = 1.0f;
-    g_image.mirror_x = false;
-
-    LOGI("AUTO_ALIGN SUCCESS: status=OK, Z=%.2fm, dx=%.1f, dy=%.1f, score=%.3f, psr=%.2f",
-         Z_est, dx_640, dy_640, best_s2, psr);
-    return res;
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_example_thermaleyes_ImageFusion_nativeGetAlignMode(JNIEnv *env, jobject thiz) {
+    return g_align_mode;
 }
 
 extern "C"
@@ -842,11 +495,27 @@ Java_com_example_thermaleyes_ImageFusion_nativeAutoCalibrate(JNIEnv *env, jobjec
     jbyte *cam_data = env->GetByteArrayElements(camData, 0);
     jbyte *therm_data = env->GetByteArrayElements(thermData, 0);
 
-    AlignResult res = auto_align_depth_aware((const uint8_t *)cam_data, (const uint8_t *)therm_data,
-                                             cam_width, cam_height, therm_width, therm_height);
+    AlignmentResult res;
+    if (g_align_mode == ALIGN_MODE_PCTVA) {
+        LOGI("nativeAutoCalibrate: Running PCTVA (Research Mode)...");
+        res = PhysicsAlignment::align((const uint8_t *)cam_data, (const uint8_t *)therm_data,
+                                      cam_width, cam_height, therm_width, therm_height);
+    } else {
+        LOGI("nativeAutoCalibrate: Running TGA (Engineering Mode)...");
+        res = ThermalGuidedAligner::align((const uint8_t *)cam_data, (const uint8_t *)therm_data,
+                                          cam_width, cam_height, therm_width, therm_height);
+    }
 
     env->ReleaseByteArrayElements(camData, cam_data, JNI_ABORT);
     env->ReleaseByteArrayElements(thermData, therm_data, JNI_ABORT);
+
+    if (res.success && res.status == ALIGN_OK) {
+        // Apply directly to active runtime warp without corrupting static hardware calibration
+        g_image.offset_x = (int)std::round(res.dx);
+        g_image.offset_y = (int)std::round(res.dy);
+        g_image.scale = res.scale <= 0.1f ? 1.0f : res.scale;
+        g_image.mirror_x = false;
+    }
 
     if (results != nullptr) {
         jsize len = env->GetArrayLength(results);
@@ -855,8 +524,8 @@ Java_com_example_thermaleyes_ImageFusion_nativeAutoCalibrate(JNIEnv *env, jobjec
                 res.dx,
                 res.dy,
                 res.scale,
-                res.estimatedDistance,
-                res.score,
+                res.distance,
+                res.confidence,
                 res.psr
             };
             env->SetFloatArrayRegion(results, 0, 6, res_tab);

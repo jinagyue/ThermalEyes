@@ -10,15 +10,13 @@ cmake_minimum_required(VERSION 3.18.1)
 
 project("img_algo")
 
-# OpenCV 配置
-include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories(
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/alignment
+)
+
 add_library( lib_opencv SHARED IMPORTED )
 set_target_properties(lib_opencv PROPERTIES IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/jniLibs/${ANDROID_ABI}/libopencv_java4.so)
-
-# Creates and names a library, sets it as either STATIC
-# or SHARED, and provides the relative paths to its source code.
-# You can define multiple libraries, and CMake builds them for you.
-# Gradle automatically packages shared libraries with your APK.
 
 add_library( # Sets the name of the library.
              img_algo
@@ -27,7 +25,12 @@ add_library( # Sets the name of the library.
              SHARED
 
              # Provides a relative path to your source file(s).
-        image_fusion.cpp)
+             image_fusion.cpp
+             alignment/CalibrationModel.cpp
+             alignment/ThermalPreprocess.cpp
+             alignment/ThermalTargetDetector.cpp
+             alignment/ThermalGuidedAligner.cpp
+             alignment/PhysicsAlignment.cpp )
 
 # Searches for a specified prebuilt library and stores the path as a
 # variable. Because CMake includes system libraries in the search path by
